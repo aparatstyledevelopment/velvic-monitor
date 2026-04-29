@@ -1,0 +1,7 @@
+@import "./design/tokens.css";
+@import "./design/reset.css";
+@import "./design/typography.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
