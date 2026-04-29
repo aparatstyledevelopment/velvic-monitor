@@ -10,9 +10,12 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
 
 # Import models so Base.metadata is populated.
-from app.auth import models  # noqa: F401
+from app.auth import models as _auth_models  # noqa: F401
 from app.core.config import get_settings
 from app.core.db import Base
+from app.crawlers import models as _crawler_models  # noqa: F401
+from app.engine import models as _engine_models  # noqa: F401
+from app.ingestion import models as _ingestion_models  # noqa: F401
 
 config = context.config
 if config.config_file_name is not None:

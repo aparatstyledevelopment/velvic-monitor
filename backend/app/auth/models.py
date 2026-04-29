@@ -152,3 +152,23 @@ class OrgCompanyAccess(Base):
     added_at: Mapped[datetime] = mapped_column(
         nullable=False, server_default=text("now()")
     )
+
+
+class PeerRelationship(Base):
+    __tablename__ = "peer_relationship"
+
+    company_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("company.id", ondelete="CASCADE"), primary_key=True
+    )
+    peer_company_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("company.id", ondelete="CASCADE"), primary_key=True
+    )
+    rank: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    set_at: Mapped[datetime] = mapped_column(
+        nullable=False, server_default=text("now()")
+    )
+    set_by_user_id: Mapped[UUID | None] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("app_user.id", ondelete="SET NULL"),
+        nullable=True,
+    )
