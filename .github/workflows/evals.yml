@@ -1,0 +1,43 @@
+name: evals
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "evals/**"
+      - "backend/app/engine/**/prompts.py"
+      - "backend/app/chat/prompts.py"
+      - ".github/workflows/evals.yml"
+  pull_request:
+    paths:
+      - "evals/**"
+      - "backend/app/engine/**/prompts.py"
+      - "backend/app/chat/prompts.py"
+      - ".github/workflows/evals.yml"
+
+jobs:
+  promptfoo:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository }}
+    defaults:
+      run:
+        working-directory: evals
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install promptfoo
+        run: npm install -g promptfoo
+
+      - name: Run evals
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -z "${ANTHROPIC_API_KEY}" ]; then
+            echo "ANTHROPIC_API_KEY not set; skipping evals (Phase 0 baseline)."
+            exit 0
+          fi
+          promptfoo eval -c promptfoo.yaml --no-progress-bar
