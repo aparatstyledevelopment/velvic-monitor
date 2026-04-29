@@ -1,0 +1,46 @@
+/* Typography tokens for headings + body text. Components use these classes
+   instead of raw font-size/line-height utilities. */
+
+.t-display {
+  font-size: 30px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+.t-title {
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.t-section {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.t-body {
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.t-small {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.t-meta {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-tertiary);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.t-mono {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+}

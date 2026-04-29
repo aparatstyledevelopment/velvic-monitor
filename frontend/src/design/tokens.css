@@ -1,0 +1,76 @@
+/*
+ * Three-layer token system: primitive (raw values) → semantic (roles) →
+ * component (applications). Components import semantic tokens only.
+ * See ADR 0008 and the design blueprint §1.1.
+ */
+
+/* ----- Primitive tokens (raw values) ----- */
+:root {
+  --color-white: #ffffff;
+  --color-black: #0a0a0a;
+
+  --color-gray-50:  #f7f7f7;
+  --color-gray-100: #ededed;
+  --color-gray-200: #d4d4d4;
+  --color-gray-400: #8a8a8a;
+  --color-gray-700: #2f2f2f;
+  --color-gray-900: #141414;
+
+  --color-positive: #1d8a3a;
+  --color-negative: #c53030;
+
+  --color-chart-1: #2e2e2e;
+  --color-chart-2: #5a5a5a;
+  --color-chart-3: #8a8a8a;
+
+  --space-unit: 4px;
+  --space-xxs: 2px;
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 24px;
+  --space-2xl: 32px;
+  --space-3xl: 48px;
+
+  --radius-none: 0;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-pill: 999px;
+
+  --font-sans: "Inter", "Söhne", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", monospace;
+
+  --motion-fast: 120ms;
+  --motion-medium: 220ms;
+  --motion-slow: 480ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-linear: linear;
+}
+
+/* ----- Semantic tokens (roles) — light theme ----- */
+:root,
+[data-theme="light"] {
+  --surface-default: var(--color-white);
+  --surface-inverted: var(--color-black);
+  --text-primary: var(--color-black);
+  --text-secondary: var(--color-gray-700);
+  --text-tertiary: var(--color-gray-400);
+  --border-default: var(--color-gray-200);
+  --signal-positive: var(--color-positive);
+  --signal-negative: var(--color-negative);
+  --track-default: var(--color-gray-100);
+}
+
+[data-theme="dark"] {
+  --surface-default: var(--color-black);
+  --surface-inverted: var(--color-white);
+  --text-primary: var(--color-white);
+  --text-secondary: var(--color-gray-200);
+  --text-tertiary: var(--color-gray-400);
+  --border-default: var(--color-gray-700);
+  /* signals unchanged across themes per blueprint §1.1 */
+  --track-default: var(--color-gray-900);
+}

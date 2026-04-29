@@ -1,0 +1,71 @@
+name: backend-ci
+
+on:
+  push:
+    branches: [main]
+    paths: ["backend/**", ".github/workflows/backend-ci.yml"]
+  pull_request:
+    paths: ["backend/**", ".github/workflows/backend-ci.yml"]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: velvic
+          POSTGRES_PASSWORD: velvic
+          POSTGRES_DB: velvic_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U velvic"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: backend/pyproject.toml
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Lint (ruff)
+        run: ruff check .
+
+      - name: Format check (black)
+        run: black --check .
+
+      - name: Type check (mypy)
+        run: mypy app
+
+      - name: Migrate
+        env:
+          DATABASE_URL: postgresql+asyncpg://velvic:velvic@localhost:5432/velvic_test
+        run: alembic upgrade head
+
+      - name: Test
+        env:
+          DATABASE_URL: postgresql+asyncpg://velvic:velvic@localhost:5432/velvic_test
+          REDIS_URL: redis://localhost:6379/15
+        run: pytest --cov=app --cov-report=term-missing

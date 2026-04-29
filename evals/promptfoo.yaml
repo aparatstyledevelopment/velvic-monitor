@@ -1,0 +1,23 @@
+# Promptfoo entry point. Phase 0 ships a smoke config; full suites land in
+# Phase 1 (briefing_quality) and Phase 2 (citation_discipline, refusal_behavior).
+description: "Velvic Monitor LLM eval suite"
+
+prompts:
+  - file://briefing_quality/prompt.txt
+
+providers:
+  - id: anthropic:messages:claude-haiku-4-5-20251001
+    config:
+      max_tokens: 256
+
+tests:
+  - description: "smoke: provider connectivity"
+    vars:
+      question: "Reply with the single word OK."
+    assert:
+      - type: contains
+        value: "OK"
+
+defaultTest:
+  options:
+    cache: true
