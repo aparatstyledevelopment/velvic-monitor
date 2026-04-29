@@ -5,7 +5,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api.routers import auth, health
+from app.api.routers import auth, briefings, health
 from app.core.cache import close_redis
 from app.core.config import get_settings
 from app.core.errors import AppError, to_http
@@ -49,6 +49,7 @@ def create_app() -> FastAPI:
 
     app.include_router(health.router, prefix="/api")
     app.include_router(auth.router, prefix="/api")
+    app.include_router(briefings.router, prefix="/api")
 
     return app
 
