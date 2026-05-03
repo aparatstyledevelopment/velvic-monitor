@@ -49,3 +49,17 @@ must register via `useHistoryBridge(active, onClose)`. See `src/history/bridge.t
 ## Testing
 
 Vitest for component unit tests. Playwright for E2E in `tests/e2e/`.
+
+## Design system gallery (Ladle)
+
+Every primitive in `src/design/primitives/` ships with a `*.stories.tsx` file
+in the same directory. The token gallery lives at `src/design/Tokens.stories.tsx`.
+
+Run `npm run ladle` for a hot-reloading gallery at `http://localhost:61000`,
+or `npm run ladle:build` for a static deploy. The Ladle wrapper
+(`.ladle/components.tsx`) loads `src/index.css` so stories inherit the same
+design tokens as the SPA, and binds Ladle's theme toggle to our `data-theme`
+attribute on `<html>` so light/dark switches in Ladle exactly mirror the app.
+
+When you add a new primitive, add a story alongside it. When a token is added
+or its semantic role changes, update `Tokens.stories.tsx` in the same PR.

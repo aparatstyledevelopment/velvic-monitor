@@ -7,11 +7,13 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "lint": "eslint . --ext .ts,.tsx",
+    "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "playwright test",
+    "ladle": "ladle serve",
+    "ladle:build": "ladle build",
     "openapi:gen": "openapi-typescript ../shared/openapi/spec.json -o ../shared/openapi/types.ts"
   },
   "dependencies": {
@@ -26,6 +28,8 @@
     "zustand": "^5.0.1"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.4",
+    "@ladle/react": "^5.1.1",
     "@playwright/test": "^1.48.0",
     "@testing-library/jest-dom": "^6.5.0",
     "@testing-library/react": "^16.0.1",
@@ -44,6 +48,7 @@
     "prettier": "^3.3.3",
     "tailwindcss": "^3.4.13",
     "typescript": "^5.6.3",
+    "typescript-eslint": "^8.59.1",
     "vite": "^5.4.8",
     "vitest": "^2.1.2"
   }

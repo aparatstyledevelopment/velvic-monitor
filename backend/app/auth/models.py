@@ -13,7 +13,8 @@ from sqlalchemy import (
     Text,
     text,
 )
-from sqlalchemy.dialects.postgresql import BYTEA, UUID as PGUUID
+from sqlalchemy.dialects.postgresql import BYTEA
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base
@@ -28,7 +29,9 @@ class Org(Base):
         server_default=text("gen_random_uuid()"),
     )
     name: Mapped[str] = mapped_column(Text, nullable=False)
-    plan: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'pilot'"))
+    plan: Mapped[str] = mapped_column(
+        Text, nullable=False, server_default=text("'pilot'")
+    )
     llm_provider_pref: Mapped[str] = mapped_column(
         Text, nullable=False, server_default=text("'anthropic'")
     )
@@ -148,4 +151,24 @@ class OrgCompanyAccess(Base):
     )
     added_at: Mapped[datetime] = mapped_column(
         nullable=False, server_default=text("now()")
+    )
+
+
+class PeerRelationship(Base):
+    __tablename__ = "peer_relationship"
+
+    company_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("company.id", ondelete="CASCADE"), primary_key=True
+    )
+    peer_company_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("company.id", ondelete="CASCADE"), primary_key=True
+    )
+    rank: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    set_at: Mapped[datetime] = mapped_column(
+        nullable=False, server_default=text("now()")
+    )
+    set_by_user_id: Mapped[UUID | None] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("app_user.id", ondelete="SET NULL"),
+        nullable=True,
     )

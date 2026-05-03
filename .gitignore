@@ -17,6 +17,7 @@ env/
 # Node
 node_modules/
 dist/
+build/
 .vite/
 .eslintcache
 *.tsbuildinfo
@@ -24,6 +25,7 @@ dist/
 # Tests
 playwright-report/
 test-results/
+.hypothesis/
 
 # Editors
 .vscode/

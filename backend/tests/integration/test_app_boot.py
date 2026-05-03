@@ -22,3 +22,12 @@ def test_auth_routes_registered() -> None:
     assert "/api/auth/logout" in paths
     assert "/api/auth/me" in paths
     assert "/api/health" in paths
+
+
+def test_briefing_routes_registered() -> None:
+    client = TestClient(create_app())
+    spec = client.get("/api/openapi.json").json()
+    paths = spec.get("paths", {})
+    assert "/api/companies/{company_id}/briefings/latest" in paths
+    assert "/api/companies/{company_id}/briefings/{date}" in paths
+    assert "/api/companies/{company_id}/briefings/{date}/evidence" in paths

@@ -1,4 +1,4 @@
-.PHONY: help install dev down test test-backend test-frontend e2e lint typecheck migrate evals build
+.PHONY: help install dev down test test-backend test-frontend e2e lint typecheck migrate seed backfill evals build
 
 help:
 	@echo "Velvic Monitor — make targets"
@@ -12,6 +12,8 @@ help:
 	@echo "  lint           ruff + black --check + mypy + eslint + tsc"
 	@echo "  typecheck      mypy + tsc only"
 	@echo "  migrate        alembic upgrade head"
+	@echo "  seed           seed five Swedish demo tickers + peer relationships"
+	@echo "  backfill       run a full crawl + ingest + briefing for the demo set"
 	@echo "  evals          promptfoo eval"
 	@echo "  build          production build of frontend"
 
@@ -46,6 +48,12 @@ typecheck:
 
 migrate:
 	cd backend && alembic upgrade head
+
+seed:
+	cd backend && python -m app.admin.seed
+
+backfill:
+	cd backend && python -m app.admin.backfill
 
 evals:
 	cd evals && npx promptfoo eval -c promptfoo.yaml
