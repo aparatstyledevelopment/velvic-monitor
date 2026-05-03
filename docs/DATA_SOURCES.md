@@ -36,78 +36,66 @@ Per-source endpoints, schemas, schema-mapping rules, and known issues are in
 the blueprint Appendix E. When a source changes (URL pattern, series IDs, auth
 flow), update both this file and the blueprint.
 
-## Known upstream issues (Layer 2 research, May 2026)
+## Upstream status (Layer 2 audit, May 2026; updated post-Phase-1.5 fixes)
 
-These are the verified deltas between blueprint placeholders and what the
-real upstreams currently look like. Each becomes a Phase-1.5 fix-it ticket
-before backfill is run for real.
+Status after the Phase-1.5 fix-it patch. Items below are sorted by current
+state.
 
-### Yahoo Finance — BLOCKER
+### Resolved
 
-`https://query2.finance.yahoo.com/v8/finance/chart/{symbol}` returns **403**
-to plain HTTP clients. yfinance bypasses this with `curl_cffi` impersonating
-Chrome (TLS fingerprint matters, not just headers). Three remediation paths:
+- **Yahoo Finance** — Swapped from direct `httpx` calls to the `yfinance`
+  library. Yahoo's `/v8/finance/chart/` endpoint returns 403 to plain HTTP
+  (TLS-fingerprint detection); yfinance's curl_cffi Chrome impersonation
+  bypasses it. Network call now lives in `_yf_history_records`, executed
+  via `asyncio.to_thread`. The crawler's `parse()` is unchanged in shape
+  (list-of-records in, ParsedBar out) so unit tests still drive it with
+  fixtures, no network. Tier-1 isolation (ADR 0005) means the eventual
+  swap to a paid feed (Millistream / Refinitiv) stays a Tier-1 + ingestion
+  change with zero Engine impact.
 
-1. **Swap to the `yfinance` Python library** (handles impersonation +
-   crumb/cookie dance). Cleanest, ships in a few hours.
-2. **Adopt `curl_cffi` directly** in our crawler. Same idea, more code.
-3. **Switch to a paid feed** (Millistream / Refinitiv / Polygon). The
-   long-term plan per ADR 0002; can wait until pre-LOI.
+- **SCB PXWeb** — Default `table_id` swapped from the bogus `PR0101A1`
+  to `KPItotM` (the real monthly CPI 1980=100 table). The `crawl.scb`
+  beat task is disabled in `pipeline/schedules.py:DISABLED_CRAWLERS`
+  until the operator confirms the active 2020=100 successor table id
+  for 2026+ data and re-enables. The crawler can still be invoked
+  manually for ad-hoc runs.
 
-For the demo backfill, option (1) is enough. Tier-1 isolation means the
-Engine doesn't notice.
+- **ESAP** — Beat task disabled in `DISABLED_CRAWLERS`; module docstring
+  updated to call out the 2026-07-10 collection start / July 2027 public
+  API timeline. Skeleton kept so the BaseCrawler contract is in place
+  for the future cutover.
 
-### Riksbank SWEA — VERIFY before backfill
+### Verified OK
 
-The series IDs in `riksbank.py` (`SECBREPOEFF`, `SEKEURPMI`, `SEKUSDPMI`,
-`SEKGVB10YC`) need a manual cross-check against
-`https://www.riksbank.se/en-gb/statistics/interest-rates-and-exchange-rates/retrieving-interest-rates-and-exchange-rates-via-api/series-for-the-api/`.
-The `/swea/v1/Observations/{series}/{from}/{to}` endpoint shape is correct.
-Note: the API ToS allows 200 calls/min and 30k/week — comfortable for our
-cadence.
+- **FRED** — Endpoint `https://api.stlouisfed.org/fred/series/observations`
+  and series IDs `DCOILBRENTEU`, `DGS10`, `DEXUSEU` confirmed against
+  current FRED docs. Free API key (`FRED_API_KEY`) required.
 
-### SCB PXWeb — BROKEN
+### VERIFY before turning on (still open)
 
-The `table_id = "PR0101A1"` in `scb.py` is not a real SCB table. Real CPI
-tables go through paths like `START__PR__PR0101__PR0101A/KPItotM` or
-`SnabbStatPR0101`. The base URL `https://api.scb.se/OV0104/v1/doris/en/ssd`
-is correct; the table-id resolution needs fixing.
+- **Riksbank SWEA** — `/swea/v1/Observations/{series}/{from}/{to}` endpoint
+  shape confirmed against search results. Series IDs `SECBREPOEFF`,
+  `SEKEURPMI`, `SEKUSDPMI`, `SEKGVB10YC` are the documented IDs but
+  haven't been hit live from this repo. Cross-check against the live
+  series list at `riksbank.se/en-gb/statistics/...series-for-the-api/`
+  before first scheduled run. API limits are 200/min and 30k/week — well
+  within budget.
 
-Also: the `KPItotM` 1980=100 series stops updating after Dec 2025; from
-2026 the rebased 2020=100 series at `KPI2020COICOPAR` is the active one.
-Fix when first running backfill against real SCB.
+- **MFN** — Per-issuer Atom URL pattern `mfn.se/all/a/{slug}?format=atom`
+  is plausible based on observed issuer pages but `?format=atom` is
+  undocumented in public search results. Confirm against a known issuer
+  (e.g. `mfn.se/all/a/volvo?format=atom`) before turning on the
+  `crawl.mfn` beat task. Slug list lives on `Company.mfn_slug`.
 
-### FRED — OK
+- **FI Insider (`marknadssok.fi.se/publiceringsklient/...`)** — Host
+  confirmed; the CSV-export URL with `button=export` came from
+  reverse-engineering the search UI. Sniff the actual download URL from
+  a browser session and confirm column names match `parse()` before
+  enabling. Same for **FI Short**
+  (`fi.se/sv/vara-register/blankningsregistret/GetAktuellFile/`) — it's
+  the URL behind the "download" button on the registry page; confirm the
+  CSV header set matches what `parse()` expects.
 
-`https://api.stlouisfed.org/fred/series/observations` and series IDs
-`DCOILBRENTEU`, `DGS10`, `DEXUSEU` all check out against current docs.
-Free API key required. Endpoint shape and response shape match the parser.
-
-### MFN — VERIFY
-
-`https://mfn.se/all/a/{slug}?format=atom` is the documented per-issuer feed
-URL pattern. Issuer slugs (e.g., `volvo`, `atlas-copco`, `sandvik`) are
-hand-curated and live on the `Company.mfn_slug` column. Confirm the
-`?format=atom` query param actually returns atom (vs HTML); the seed
-already maps the five demo tickers' slugs.
-
-### ESAP — NOT YET LIVE
-
-ESAP's collection start date is **10 July 2026**; public API access lands
-**July 2027**. The crawler is a structural skeleton today; the URL,
-auth scheme, and response shape are placeholders that will be replaced
-when ESMA publishes the v1 API spec. Disable the `crawl.esap` beat task
-until then.
-
-### FI Insider — VERIFY
-
-`https://marknadssok.fi.se/publiceringsklient/en-GB/Search/Search` with
-`button=export` is undocumented; FI publishes the search UI but not a
-stable API. The CSV download URL needs sniffing from the live UI before
-backfill.
-
-### FI Short — VERIFY
-
-`https://www.fi.se/sv/vara-register/blankningsregistret/GetAktuellFile/`
-is the URL the FI page hits when you click "download". Verify the CSV
-column names (Swedish-locale headers) match what `parse()` expects.
+- **Company IR RSS** — Per-company `ir_rss_url`. Tests use synthetic
+  feeds; confirm against the real Datablocks/Cision feeds for each
+  onboarded company at admin onboarding time.

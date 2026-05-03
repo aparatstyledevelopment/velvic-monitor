@@ -31,8 +31,13 @@ class ParsedScb:
     raw: dict[str, Any]
 
 
-# CPI all-items, monthly. Real prod uses precise PXWeb body; placeholder here.
-DEFAULT_TABLE = "PR0101A1"
+# CPI all-items, monthly. KPItotM is the historical 1980=100 base; SCB
+# stopped updating it after 2025M12 and the active series from 2026 is the
+# 2020=100 rebase. Operators must verify the live PXWeb tree and swap to
+# the rebased table id (typically `KPI2020COICOPAR` for annual or the
+# 2020=100 monthly successor) before turning on the SCB beat task in
+# production. See docs/DATA_SOURCES.md.
+DEFAULT_TABLE = "KPItotM"
 
 
 class ScbCrawler(BaseCrawler[ParsedScb]):
