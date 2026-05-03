@@ -24,6 +24,10 @@ dependencies = [
     "email-validator==2.2.0",
     "sentry-sdk[fastapi]==2.14.0",
     "sqlglot==25.20.2",
+    # yfinance handles Yahoo's anti-bot impersonation (curl_cffi) so plain
+    # HTTPS calls don't get 403'd. Tier-1 isolation means we can swap to a
+    # paid feed (Millistream / Refinitiv) later without touching the Engine.
+    "yfinance==1.3.0",
 ]
 
 [project.optional-dependencies]
@@ -78,7 +82,7 @@ plugins = ["pydantic.mypy"]
 exclude = ["alembic/versions"]
 
 [[tool.mypy.overrides]]
-module = ["celery.*", "passlib.*"]
+module = ["celery.*", "passlib.*", "yfinance", "yfinance.*"]
 ignore_missing_imports = true
 
 # Celery's `@celery_app.task(bind=True, ...)` decorator is structurally

@@ -1,9 +1,11 @@
 """ESAP (EU Single Access Point) regulatory filing crawler.
 
-ESAP launched 2026; the access endpoints are stabilizing. The implementation
-here mirrors the BaseCrawler pattern with a minimal XML payload shape and
-serves as a robust skeleton -- the exact endpoint and filter shape MUST
-be confirmed against ESAP's developer portal at production-deploy time.
+NOT YET LIVE. ESMA's collection start date is 2026-07-10; public read
+API is expected July 2027. The crawler stays as a structural skeleton
+so the BaseCrawler contract is in place -- the URL, auth, and response
+shape are placeholders that will be replaced when ESMA publishes the
+v1 API spec. The "esap" beat task is registered in BEAT_SCHEDULE but
+disabled via DISABLED_CRAWLERS in pipeline/schedules.py.
 """
 
 from __future__ import annotations

@@ -1,19 +1,28 @@
 """Yahoo Finance daily OHLCV crawler.
 
-Uses the v8 chart endpoint (no API key, free tier ToS for non-commercial pilots).
-Production deployments should swap for a paid feed -- see DATA_SOURCES.md.
+Yahoo's `/v8/finance/chart/` endpoint returns 403 to plain HTTP clients (TLS
+fingerprint detection); yfinance bypasses it via curl_cffi Chrome
+impersonation. We delegate the network call to yfinance and keep the rest of
+the crawler -- parse, upsert, dedup -- pure so unit tests can drive it with
+list-of-record fixtures without touching the network.
+
+Tier-1 isolation (ADR 0002, ADR 0005) means switching to a paid feed
+(Millistream / Refinitiv / Polygon) is a Tier-1 + ingestion change with no
+Engine impact -- planned pre-LOI.
 """
 
 from __future__ import annotations
 
+import asyncio
+import math
 from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Any
 
+import yfinance as yf
 from sqlalchemy import select
-from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.crawlers.base import BaseCrawler, DateRange, PolitenessConfig
@@ -37,7 +46,6 @@ class ParsedBar:
 class YahooFinanceCrawler(BaseCrawler[ParsedBar]):
     name = "yahoo_finance"
     politeness = PolitenessConfig(min_interval_s=0.6)
-    base_url = "https://query2.finance.yahoo.com/v8/finance/chart/{symbol}"
 
     def __init__(
         self,
@@ -49,67 +57,42 @@ class YahooFinanceCrawler(BaseCrawler[ParsedBar]):
         self._symbols = symbols or []
 
     async def fetch_batches(self, window: DateRange) -> AsyncIterator[dict[str, Any]]:
-        period1 = int(
-            datetime.combine(window.start, datetime.min.time(), UTC).timestamp()
-        )
-        period2 = int(
-            datetime.combine(window.end, datetime.max.time(), UTC).timestamp()
-        )
-        async with self.http() as client:
-            for symbol in self._symbols:
-                resp = await self.get_with_retry(
-                    client,
-                    self.base_url.format(symbol=symbol),
-                    params={
-                        "period1": period1,
-                        "period2": period2,
-                        "interval": "1d",
-                        "includeAdjustedClose": "true",
-                    },
-                )
-                yield resp.json()
+        for symbol in self._symbols:
+            records = await asyncio.to_thread(
+                _yf_history_records, symbol, window.start, window.end
+            )
+            if self.politeness.min_interval_s > 0:
+                await asyncio.sleep(self.politeness.min_interval_s)
+            yield {"symbol": symbol, "records": records}
 
     def parse(self, batch: dict[str, Any]) -> Sequence[ParsedBar]:
-        chart = batch.get("chart", {})
-        result_list = chart.get("result") or []
-        if not result_list:
+        symbol = batch.get("symbol")
+        records: list[dict[str, Any]] = batch.get("records") or []
+        if not symbol or not records:
             return []
-        result = result_list[0]
-        meta = result.get("meta", {})
-        symbol = meta.get("symbol")
-        timestamps = result.get("timestamp") or []
-        indicators = result.get("indicators", {})
-        quote = (indicators.get("quote") or [{}])[0]
-        adj = (indicators.get("adjclose") or [{}])[0]
-
-        opens = quote.get("open") or [None] * len(timestamps)
-        highs = quote.get("high") or [None] * len(timestamps)
-        lows = quote.get("low") or [None] * len(timestamps)
-        closes = quote.get("close") or [None] * len(timestamps)
-        volumes = quote.get("volume") or [None] * len(timestamps)
-        adjs = adj.get("adjclose") or [None] * len(timestamps)
-
         out: list[ParsedBar] = []
-        for i, ts in enumerate(timestamps):
-            d = datetime.fromtimestamp(ts, tz=UTC).date()
+        for rec in records:
+            d = _to_date(rec.get("Date"))
+            if d is None:
+                continue
             out.append(
                 ParsedBar(
                     ticker=symbol,
                     trading_date=d,
-                    open=_dec(opens[i]),
-                    high=_dec(highs[i]),
-                    low=_dec(lows[i]),
-                    close=_dec(closes[i]),
-                    adj_close=_dec(adjs[i]),
-                    volume=int(volumes[i]) if volumes[i] is not None else None,
+                    open=_dec(rec.get("Open")),
+                    high=_dec(rec.get("High")),
+                    low=_dec(rec.get("Low")),
+                    close=_dec(rec.get("Close")),
+                    adj_close=_dec(rec.get("Adj Close") or rec.get("Close")),
+                    volume=_int(rec.get("Volume")),
                     raw={
-                        "ts": ts,
-                        "o": opens[i],
-                        "h": highs[i],
-                        "l": lows[i],
-                        "c": closes[i],
-                        "ac": adjs[i],
-                        "v": volumes[i],
+                        "date": d.isoformat(),
+                        "o": _jsonable(rec.get("Open")),
+                        "h": _jsonable(rec.get("High")),
+                        "l": _jsonable(rec.get("Low")),
+                        "c": _jsonable(rec.get("Close")),
+                        "ac": _jsonable(rec.get("Adj Close")),
+                        "v": _jsonable(rec.get("Volume")),
                     },
                 )
             )
@@ -130,7 +113,6 @@ class YahooFinanceCrawler(BaseCrawler[ParsedBar]):
             if existing is not None:
                 if _bar_equal(existing, r):
                     continue
-                # Supersede the prior fetch when content differs.
                 new_row = YahooPriceBar(
                     ticker=r.ticker,
                     trading_date=r.trading_date,
@@ -166,10 +148,79 @@ class YahooFinanceCrawler(BaseCrawler[ParsedBar]):
         return n
 
 
+def _yf_history_records(symbol: str, start: date, end: date) -> list[dict[str, Any]]:
+    """Sync helper executed in a thread; isolates pandas + yfinance from async code."""
+    df = yf.Ticker(symbol).history(
+        start=start.isoformat(),
+        end=(end.toordinal() - start.toordinal() and end.isoformat())
+        or end.isoformat(),
+        interval="1d",
+        auto_adjust=False,
+    )
+    if df is None or df.empty:
+        return []
+    records: list[dict[str, Any]] = df.reset_index().to_dict(orient="records")
+    return records
+
+
 def _dec(v: Any) -> Decimal | None:
     if v is None:
         return None
-    return Decimal(str(v))
+    if isinstance(v, float) and (math.isnan(v) or math.isinf(v)):
+        return None
+    try:
+        return Decimal(str(v))
+    except Exception:
+        return None
+
+
+def _int(v: Any) -> int | None:
+    if v is None:
+        return None
+    if isinstance(v, float) and (math.isnan(v) or math.isinf(v)):
+        return None
+    try:
+        return int(v)
+    except Exception:
+        return None
+
+
+def _to_date(v: Any) -> date | None:
+    if v is None:
+        return None
+    if isinstance(v, date):
+        return v
+    if isinstance(v, datetime):
+        return v.date()
+    if hasattr(v, "to_pydatetime"):
+        # pandas Timestamp; to_pydatetime() returns datetime.
+        dt: datetime = v.to_pydatetime()
+        return dt.date()
+    if isinstance(v, str):
+        try:
+            return datetime.fromisoformat(v[:10]).date()
+        except ValueError:
+            return None
+    if isinstance(v, int | float):
+        try:
+            return datetime.fromtimestamp(float(v), tz=UTC).date()
+        except (OverflowError, OSError, ValueError):
+            return None
+    return None
+
+
+def _jsonable(v: Any) -> Any:
+    if v is None:
+        return None
+    if isinstance(v, float) and (math.isnan(v) or math.isinf(v)):
+        return None
+    if isinstance(v, str | int | bool):
+        return v
+    if isinstance(v, float):
+        return v
+    if hasattr(v, "isoformat"):
+        return v.isoformat()
+    return str(v)
 
 
 def _bar_equal(existing: YahooPriceBar, new: ParsedBar) -> bool:
@@ -186,7 +237,3 @@ def _bar_equal(existing: YahooPriceBar, new: ParsedBar) -> bool:
 @register("yahoo_finance")
 def _factory() -> YahooFinanceCrawler:
     return YahooFinanceCrawler()
-
-
-# Keep insert imported (used in companion utilities/tests later)
-_ = insert
