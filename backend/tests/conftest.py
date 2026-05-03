@@ -3,6 +3,7 @@
 Most tests in Phase 0 are unit tests with no DB dependency. Integration
 fixtures (Postgres, Redis) come online in Phase 1 alongside the data layer.
 """
+
 from __future__ import annotations
 
 import os

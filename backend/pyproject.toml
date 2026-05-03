@@ -17,6 +17,9 @@ dependencies = [
     "loguru==0.7.2",
     "python-jose[cryptography]==3.3.0",
     "passlib[bcrypt]==1.7.4",
+    # passlib 1.7.4 is incompatible with bcrypt 5.x (the API moved); pin to
+    # the last 4.x release until passlib ships a fix.
+    "bcrypt<5.0",
     "python-multipart==0.0.10",
     "email-validator==2.2.0",
     "sentry-sdk[fastapi]==2.14.0",
@@ -55,6 +58,10 @@ ignore = ["E501"]  # black handles line length
 [tool.ruff.lint.per-file-ignores]
 "alembic/versions/*.py" = ["E402"]
 "tests/*" = ["B011"]
+# FastAPI's `Depends()` / `Cookie()` defaults are the framework idiom; B008
+# (function call in argument default) is a false positive for these.
+"app/api/routers/*.py" = ["B008"]
+"app/auth/deps.py" = ["B008"]
 
 [tool.black]
 line-length = 88

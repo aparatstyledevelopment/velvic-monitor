@@ -29,7 +29,9 @@ def create_access_token(*, user_id: UUID, org_id: UUID, role: str) -> str:
         "role": role,
         "type": "access",
         "iat": int(now.timestamp()),
-        "exp": int((now + timedelta(seconds=settings.jwt_access_ttl_seconds)).timestamp()),
+        "exp": int(
+            (now + timedelta(seconds=settings.jwt_access_ttl_seconds)).timestamp()
+        ),
     }
     return jwt.encode(payload, settings.jwt_secret, algorithm=_ALGO)
 
@@ -42,7 +44,9 @@ def create_refresh_token(*, user_id: UUID, org_id: UUID) -> str:
         "org_id": str(org_id),
         "type": "refresh",
         "iat": int(now.timestamp()),
-        "exp": int((now + timedelta(seconds=settings.jwt_refresh_ttl_seconds)).timestamp()),
+        "exp": int(
+            (now + timedelta(seconds=settings.jwt_refresh_ttl_seconds)).timestamp()
+        ),
     }
     return jwt.encode(payload, settings.jwt_secret, algorithm=_ALGO)
 

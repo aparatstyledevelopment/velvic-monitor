@@ -24,8 +24,8 @@ export function SignupPage() {
       await authApi.signup({
         org_name: orgName,
         email,
-        display_name: displayName || undefined,
         password,
+        ...(displayName ? { display_name: displayName } : {}),
       });
       const me = await authApi.me();
       setMe(me);

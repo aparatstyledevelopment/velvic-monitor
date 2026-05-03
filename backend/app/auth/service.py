@@ -5,7 +5,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import AppUser, Org
-from app.auth.security import create_access_token, create_refresh_token, hash_password, verify_password
+from app.auth.security import (
+    create_access_token,
+    create_refresh_token,
+    hash_password,
+    verify_password,
+)
 from app.core.errors import AuthError, ConflictError, NotFoundError
 
 

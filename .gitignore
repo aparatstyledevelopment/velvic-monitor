@@ -24,6 +24,7 @@ dist/
 # Tests
 playwright-report/
 test-results/
+.hypothesis/
 
 # Editors
 .vscode/

@@ -13,7 +13,8 @@ from sqlalchemy import (
     Text,
     text,
 )
-from sqlalchemy.dialects.postgresql import BYTEA, UUID as PGUUID
+from sqlalchemy.dialects.postgresql import BYTEA
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base
@@ -28,7 +29,9 @@ class Org(Base):
         server_default=text("gen_random_uuid()"),
     )
     name: Mapped[str] = mapped_column(Text, nullable=False)
-    plan: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'pilot'"))
+    plan: Mapped[str] = mapped_column(
+        Text, nullable=False, server_default=text("'pilot'")
+    )
     llm_provider_pref: Mapped[str] = mapped_column(
         Text, nullable=False, server_default=text("'anthropic'")
     )

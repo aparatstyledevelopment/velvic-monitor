@@ -5,11 +5,13 @@ Revises:
 Create Date: 2026-04-29
 
 """
+
 from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
+
+from alembic import op
 
 revision: str = "0001"
 down_revision: str | Sequence[str] | None = None
@@ -93,7 +95,9 @@ def upgrade() -> None:
         sa.Column("email_verified_at", sa.TIMESTAMP(timezone=True), nullable=True),
         sa.Column("email_verification_token", sa.Text(), nullable=True),
         sa.Column("password_reset_token", sa.Text(), nullable=True),
-        sa.Column("password_reset_expires_at", sa.TIMESTAMP(timezone=True), nullable=True),
+        sa.Column(
+            "password_reset_expires_at", sa.TIMESTAMP(timezone=True), nullable=True
+        ),
         sa.Column("last_login_at", sa.TIMESTAMP(timezone=True), nullable=True),
         sa.Column(
             "failed_login_attempts",
@@ -154,9 +158,7 @@ def upgrade() -> None:
             name="company_market_cap_band_check",
         ),
     )
-    op.execute(
-        "CREATE INDEX company_by_market ON company(market) WHERE active = true"
-    )
+    op.execute("CREATE INDEX company_by_market ON company(market) WHERE active = true")
 
     op.create_table(
         "org_company_access",
