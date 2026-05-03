@@ -12,6 +12,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "playwright test",
+    "ladle": "ladle serve",
+    "ladle:build": "ladle build",
     "openapi:gen": "openapi-typescript ../shared/openapi/spec.json -o ../shared/openapi/types.ts"
   },
   "dependencies": {
@@ -27,6 +29,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
+    "@ladle/react": "^5.1.1",
     "@playwright/test": "^1.48.0",
     "@testing-library/jest-dom": "^6.5.0",
     "@testing-library/react": "^16.0.1",

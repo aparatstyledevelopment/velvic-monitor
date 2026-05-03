@@ -58,6 +58,22 @@ Postgres on `:5432`, Redis on `:6379`.
 | `make evals` | Promptfoo eval suite (requires API keys) |
 | `make build` | production build of frontend |
 
+## Design system
+
+Browse every primitive and the design tokens (color / spacing / typography /
+radii) in **Ladle**, a Vite-native lightweight Storybook alternative:
+
+```
+cd frontend
+npm install
+npm run ladle           # serves at http://localhost:61000
+npm run ladle:build     # builds to frontend/build/
+```
+
+Toggle the theme (top bar in the Ladle UI) to see how every semantic token
+adapts between light and dark. Components in this repo MUST reference
+semantic tokens only — see `frontend/AGENTS.md` and ADR 0008.
+
 ## Phases
 
 1. **Phase 0 — Spec-first foundations** *(this branch)*. Repo + docs + ADRs +
