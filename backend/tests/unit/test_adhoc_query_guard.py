@@ -3,7 +3,6 @@ import pytest
 from app.core.errors import ValidationError
 from app.engine.adhoc_query import MAX_LIMIT, validate_sql
 
-
 # ---------- happy paths ----------
 
 
@@ -14,9 +13,7 @@ def test_simple_select_passes() -> None:
 
 
 def test_aggregation_passes() -> None:
-    out = validate_sql(
-        "SELECT count(*) AS n, source FROM news_item_v GROUP BY source"
-    )
+    out = validate_sql("SELECT count(*) AS n, source FROM news_item_v GROUP BY source")
     assert "count" in out.lower()
 
 

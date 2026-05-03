@@ -8,13 +8,19 @@ flags numerics not covered by a citation.
 This module is shared between the chat orchestrator (Phase 2) and the
 briefing composer (Phase 1).
 """
+
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass
 
-CITATION_RE = re.compile(r"\[(?P<id>ec_[a-f0-9]{6,})\]")
-NUMBER_RE = re.compile(r"\b(?:\d+(?:[.,]\d+)?%?)\b")
+# Match the marker plus a single optional leading whitespace so the
+# rendered text doesn't carry an orphan space before punctuation.
+CITATION_RE = re.compile(r"[ \t]?\[(?P<id>ec_[a-f0-9]{6,})\]")
+# `\b...\b` would exclude the trailing `%` because `%` isn't a word char;
+# negative lookahead for alphanumerics keeps `2.1%` matched whole while
+# still rejecting `2.5km`.
+NUMBER_RE = re.compile(r"\b\d+(?:[.,]\d+)?%?(?![A-Za-z0-9])")
 
 
 @dataclass(frozen=True)
@@ -82,7 +88,9 @@ def _find_cited_fragment(text: str, marker_start: int) -> tuple[int, int] | None
     )
 
 
-def find_uncited_numerics(text: str, spans: list[CitationSpan]) -> list[tuple[int, int, str]]:
+def find_uncited_numerics(
+    text: str, spans: list[CitationSpan]
+) -> list[tuple[int, int, str]]:
     """Return number-shaped substrings in `text` not covered by any span."""
     covered: list[tuple[int, int]] = [(s.start_char, s.end_char) for s in spans]
     out: list[tuple[int, int, str]] = []

@@ -12,40 +12,46 @@ from app.ingestion.models import PriceBar
 async def latest_close_on_or_before(
     session: AsyncSession, *, company_id: int, as_of: date
 ) -> PriceBar | None:
-    return await session.scalar(
+    result: PriceBar | None = await session.scalar(
         select(PriceBar)
         .where(PriceBar.company_id == company_id, PriceBar.trading_date <= as_of)
         .order_by(desc(PriceBar.trading_date))
         .limit(1)
     )
+    return result
 
 
 async def prior_close(
     session: AsyncSession, *, company_id: int, before: date
 ) -> PriceBar | None:
-    return await session.scalar(
+    result: PriceBar | None = await session.scalar(
         select(PriceBar)
         .where(PriceBar.company_id == company_id, PriceBar.trading_date < before)
         .order_by(desc(PriceBar.trading_date))
         .limit(1)
     )
+    return result
 
 
 async def trailing_bars(
     session: AsyncSession, *, company_id: int, as_of: date, days: int
 ) -> list[PriceBar]:
     rows = (
-        await session.execute(
-            select(PriceBar)
-            .where(
-                PriceBar.company_id == company_id,
-                PriceBar.trading_date <= as_of,
-                PriceBar.trading_date >= as_of - timedelta(days=days * 2),
+        (
+            await session.execute(
+                select(PriceBar)
+                .where(
+                    PriceBar.company_id == company_id,
+                    PriceBar.trading_date <= as_of,
+                    PriceBar.trading_date >= as_of - timedelta(days=days * 2),
+                )
+                .order_by(desc(PriceBar.trading_date))
+                .limit(days)
             )
-            .order_by(desc(PriceBar.trading_date))
-            .limit(days)
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     return list(reversed(rows))
 
 

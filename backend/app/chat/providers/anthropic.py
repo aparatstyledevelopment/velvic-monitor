@@ -4,6 +4,7 @@ Phase-1 surface: non-streaming `complete()` for the briefing composer
 and the news-summary tool. Streaming used by the chat orchestrator
 arrives in Phase 2 alongside provider-specific tool-call mapping.
 """
+
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
@@ -19,7 +20,6 @@ from app.chat.providers.base import (
     ToolSpec,
 )
 from app.core.config import get_settings
-
 
 DEFAULT_MODEL = "claude-haiku-4-5-20251001"
 PRICING_CENTS_PER_MTOK = {
@@ -79,18 +79,11 @@ class AnthropicProvider(LLMProvider):
                 for t in tools
             ]
 
-        async with self._http_ctx() as client:
-            resp = await client.post(
-                self.base_url,
-                json=body,
-                headers={
-                    "x-api-key": api_key,
-                    "anthropic-version": "2023-06-01",
-                    "content-type": "application/json",
-                },
-            )
-            resp.raise_for_status()
-            data = resp.json()
+        if self._http is not None:
+            data = await self._post(self._http, body, api_key)
+        else:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(60.0)) as client:
+                data = await self._post(client, body, api_key)
 
         text = ""
         for block in data.get("content", []):
@@ -110,7 +103,7 @@ class AnthropicProvider(LLMProvider):
             finish_reason=data.get("stop_reason") or "stop",
         )
 
-    async def stream_complete(  # type: ignore[override]
+    async def stream_complete(
         self,
         *,
         system: str,
@@ -138,23 +131,24 @@ class AnthropicProvider(LLMProvider):
         done.payload = {"finish_reason": result.finish_reason}
         yield done
 
-    def _http_ctx(self) -> httpx.AsyncClient:
-        if self._http is not None:
-            return _NoCloseClient(self._http)
-        return httpx.AsyncClient(timeout=httpx.Timeout(60.0))
-
-
-class _NoCloseClient:
-    """Thin wrapper so we can yield an injected client without closing it."""
-
-    def __init__(self, client: httpx.AsyncClient) -> None:
-        self._client = client
-
-    async def __aenter__(self) -> httpx.AsyncClient:
-        return self._client
-
-    async def __aexit__(self, *_: Any) -> None:
-        return None
+    async def _post(
+        self,
+        client: httpx.AsyncClient,
+        body: dict[str, Any],
+        api_key: str,
+    ) -> dict[str, Any]:
+        resp = await client.post(
+            self.base_url,
+            json=body,
+            headers={
+                "x-api-key": api_key,
+                "anthropic-version": "2023-06-01",
+                "content-type": "application/json",
+            },
+        )
+        resp.raise_for_status()
+        result: dict[str, Any] = resp.json()
+        return result
 
 
 def _role(r: str) -> str:
@@ -163,4 +157,6 @@ def _role(r: str) -> str:
 
 def _cost_cents(model: str, prompt_tokens: int, completion_tokens: int) -> float:
     p = PRICING_CENTS_PER_MTOK.get(model, {"prompt": 100.0, "completion": 500.0})
-    return (prompt_tokens / 1_000_000) * p["prompt"] + (completion_tokens / 1_000_000) * p["completion"]
+    return (prompt_tokens / 1_000_000) * p["prompt"] + (
+        completion_tokens / 1_000_000
+    ) * p["completion"]

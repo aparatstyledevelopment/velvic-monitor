@@ -3,10 +3,10 @@
 Idempotent: re-running on the same window upserts only when content
 differs, never on natural primary key alone.
 """
+
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
-from typing import cast
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,12 +25,16 @@ async def ingest_prices(session: AsyncSession, *, since: date | None = None) -> 
     threshold = datetime.combine(since, datetime.min.time())
 
     yahoo_rows = (
-        await session.execute(
-            select(YahooPriceBar)
-            .where(YahooPriceBar.fetched_at >= threshold)
-            .where(YahooPriceBar.superseded_by.is_(None))
+        (
+            await session.execute(
+                select(YahooPriceBar)
+                .where(YahooPriceBar.fetched_at >= threshold)
+                .where(YahooPriceBar.superseded_by.is_(None))
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     upserted = 0
     for raw in yahoo_rows:
@@ -68,7 +72,7 @@ async def ingest_prices(session: AsyncSession, *, since: date | None = None) -> 
                 open=raw.open,
                 high=raw.high,
                 low=raw.low,
-                close=cast("Decimal", raw.close),
+                close=raw.close,
                 adj_close=raw.adj_close,
                 volume=raw.volume,
                 source="yahoo",
@@ -83,12 +87,7 @@ async def ingest_prices(session: AsyncSession, *, since: date | None = None) -> 
 async def _company_for_yahoo_symbol(
     session: AsyncSession, symbol: str
 ) -> Company | None:
-    return await session.scalar(
+    result: Company | None = await session.scalar(
         select(Company).where(Company.yahoo_symbol == symbol)
     )
-
-
-# Decimal needed by cast() above; keep import in module form for clarity.
-from decimal import Decimal as _Decimal  # noqa: E402
-
-_ = _Decimal
+    return result

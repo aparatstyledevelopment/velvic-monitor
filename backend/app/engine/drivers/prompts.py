@@ -3,6 +3,7 @@
 Canonical text: see blueprint Appendix D.
 Discipline: prompt changes run the eval suite (CI gate).
 """
+
 from __future__ import annotations
 
 BRIEFING_SYSTEM_PROMPT = """\

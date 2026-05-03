@@ -1,4 +1,5 @@
 """Source crawlers. Importing this package populates the registry."""
+
 from app.crawlers import (  # noqa: F401
     company_ir_rss,
     esap,

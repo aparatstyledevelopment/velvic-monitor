@@ -6,13 +6,15 @@ we keep the highest-authority canonical row and stamp the others into
 
 Dedup key (within a 24h window): canonical_title hash + company_id.
 """
+
 from __future__ import annotations
 
 import hashlib
 import re
 import unicodedata
+from collections.abc import Iterable
+from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Iterable
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,14 +27,11 @@ from app.crawlers.models import (
 )
 from app.ingestion.models import NewsItem
 
-
 _AUTHORITY = ("mfn", "esap", "ir_rss")
 _AUTHORITY_RANK = {s: i for i, s in enumerate(_AUTHORITY)}
 
 
-async def ingest_news(
-    session: AsyncSession, *, since: datetime | None = None
-) -> int:
+async def ingest_news(session: AsyncSession, *, since: datetime | None = None) -> int:
     """Promote new MFN/ESAP/IR-RSS rows into curated news_item with dedup."""
     since = since or (datetime.utcnow() - timedelta(days=7))
     candidates = list(await _gather_candidates(session, since=since))
@@ -53,7 +52,7 @@ async def ingest_news(
             )
         )
         if existing is not None:
-            new_also = sorted(set([*existing.also_seen_in, *also]))
+            new_also = sorted({*existing.also_seen_in, *also})
             if new_also != list(existing.also_seen_in):
                 existing.also_seen_in = new_also
                 upserted += 1
@@ -80,9 +79,6 @@ async def ingest_news(
 # ---------------------------------------------------------------------- helpers
 
 
-from dataclasses import dataclass
-
-
 @dataclass(frozen=True)
 class _Candidate:
     company_id: int | None
@@ -104,74 +100,86 @@ async def _gather_candidates(
     yield_list: list[_Candidate] = []
 
     mfn_rows = (
-        await session.execute(
-            select(MfnPressRelease).where(MfnPressRelease.fetched_at >= since)
+        (
+            await session.execute(
+                select(MfnPressRelease).where(MfnPressRelease.fetched_at >= since)
+            )
         )
-    ).scalars().all()
-    for r in mfn_rows:
+        .scalars()
+        .all()
+    )
+    for mfn in mfn_rows:
         company = await session.scalar(
-            select(Company).where(Company.mfn_slug == r.ticker)
-        ) or await _company_for_ticker(session, r.ticker)
+            select(Company).where(Company.mfn_slug == mfn.ticker)
+        ) or await _company_for_ticker(session, mfn.ticker)
         yield_list.append(
             _Candidate(
                 company_id=company.id if company else None,
-                headline=r.title,
-                body_text=r.body_text,
-                published_at=r.published_at,
+                headline=mfn.title,
+                body_text=mfn.body_text,
+                published_at=mfn.published_at,
                 source="mfn",
-                source_row_id=r.id,
-                source_url=r.mfn_url,
-                mar_flagged=r.mar_flagged,
-                language=r.language,
-                dedup_hash=_hash(r.title),
-                dedup_window=_window_key(r.published_at),
+                source_row_id=mfn.id,
+                source_url=mfn.mfn_url,
+                mar_flagged=mfn.mar_flagged,
+                language=mfn.language,
+                dedup_hash=_hash(mfn.title),
+                dedup_window=_window_key(mfn.published_at),
             )
         )
 
     esap_rows = (
-        await session.execute(
-            select(EsapFiling).where(EsapFiling.fetched_at >= since)
+        (
+            await session.execute(
+                select(EsapFiling).where(EsapFiling.fetched_at >= since)
+            )
         )
-    ).scalars().all()
-    for r in esap_rows:
+        .scalars()
+        .all()
+    )
+    for esap in esap_rows:
         company = (
-            await _company_for_ticker(session, r.ticker) if r.ticker else None
+            await _company_for_ticker(session, esap.ticker) if esap.ticker else None
         )
         yield_list.append(
             _Candidate(
                 company_id=company.id if company else None,
-                headline=r.title or (r.filing_type or "regulatory filing"),
-                body_text=r.body_text,
-                published_at=r.filed_at,
+                headline=esap.title or (esap.filing_type or "regulatory filing"),
+                body_text=esap.body_text,
+                published_at=esap.filed_at,
                 source="esap",
-                source_row_id=r.id,
-                source_url=r.source_url or "",
+                source_row_id=esap.id,
+                source_url=esap.source_url or "",
                 mar_flagged=None,
                 language=None,
-                dedup_hash=_hash(r.title or r.filing_type or ""),
-                dedup_window=_window_key(r.filed_at),
+                dedup_hash=_hash(esap.title or esap.filing_type or ""),
+                dedup_window=_window_key(esap.filed_at),
             )
         )
 
     rss_rows = (
-        await session.execute(
-            select(CompanyIrRssItem).where(CompanyIrRssItem.fetched_at >= since)
+        (
+            await session.execute(
+                select(CompanyIrRssItem).where(CompanyIrRssItem.fetched_at >= since)
+            )
         )
-    ).scalars().all()
-    for r in rss_rows:
+        .scalars()
+        .all()
+    )
+    for rss in rss_rows:
         yield_list.append(
             _Candidate(
-                company_id=r.company_id,
-                headline=r.title,
-                body_text=r.body_text,
-                published_at=r.published_at,
+                company_id=rss.company_id,
+                headline=rss.title,
+                body_text=rss.body_text,
+                published_at=rss.published_at,
                 source="ir_rss",
-                source_row_id=r.id,
-                source_url=r.source_url,
+                source_row_id=rss.id,
+                source_url=rss.source_url,
                 mar_flagged=None,
                 language=None,
-                dedup_hash=_hash(r.title),
-                dedup_window=_window_key(r.published_at),
+                dedup_hash=_hash(rss.title),
+                dedup_window=_window_key(rss.published_at),
             )
         )
 
@@ -183,7 +191,10 @@ async def _company_for_ticker(
 ) -> Company | None:
     if not ticker:
         return None
-    return await session.scalar(select(Company).where(Company.ticker == ticker))
+    result: Company | None = await session.scalar(
+        select(Company).where(Company.ticker == ticker)
+    )
+    return result
 
 
 def _normalize(s: str) -> str:

@@ -3,6 +3,7 @@
 PXWeb is a POST-style API where the body picks dimensions. We keep the call
 shape simple: one table per crawler invocation, latest N observations.
 """
+
 from __future__ import annotations
 
 from collections.abc import AsyncIterator, Sequence
@@ -106,9 +107,7 @@ class ScbCrawler(BaseCrawler[ParsedScb]):
             )
         return out
 
-    async def upsert_raw(
-        self, session: AsyncSession, rows: Sequence[ParsedScb]
-    ) -> int:
+    async def upsert_raw(self, session: AsyncSession, rows: Sequence[ParsedScb]) -> int:
         n = 0
         for r in rows:
             existing = await session.scalar(

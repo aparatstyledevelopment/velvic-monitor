@@ -3,11 +3,11 @@
 Properties: parsing is total over arbitrary text + a known id set,
 markers always strip, and a fully-cited input has zero uncited numerics.
 """
+
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from app.chat.citations import find_uncited_numerics, parse_citations
-
 
 text_chunks = st.text(
     alphabet="abcdefgh ABCDEFGH 0123456789.%- \n",
@@ -25,7 +25,10 @@ def test_no_markers_no_spans(text: str) -> None:
     assert result.text == text
 
 
-@given(prefix=text_chunks, ec_suffix=st.text(alphabet="0123456789abcdef", min_size=6, max_size=12))
+@given(
+    prefix=text_chunks,
+    ec_suffix=st.text(alphabet="0123456789abcdef", min_size=6, max_size=12),
+)
 @settings(max_examples=50, deadline=None)
 def test_known_marker_is_consumed(prefix: str, ec_suffix: str) -> None:
     ec_id = f"ec_{ec_suffix}"

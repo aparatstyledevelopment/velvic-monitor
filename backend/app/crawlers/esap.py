@@ -5,6 +5,7 @@ here mirrors the BaseCrawler pattern with a minimal XML payload shape and
 serves as a robust skeleton -- the exact endpoint and filter shape MUST
 be confirmed against ESAP's developer portal at production-deploy time.
 """
+
 from __future__ import annotations
 
 from collections.abc import AsyncIterator, Sequence

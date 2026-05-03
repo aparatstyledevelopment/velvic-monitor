@@ -3,6 +3,7 @@
 The orchestrator and briefing composer talk to this interface; they do
 not import any provider SDK directly. See ADR 0004.
 """
+
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
@@ -64,8 +65,7 @@ class LLMProvider(Protocol):
         max_tokens: int = 4096,
         temperature: float = 0.2,
         model: str | None = None,
-    ) -> CompletionResult:
-        ...
+    ) -> CompletionResult: ...
 
     def stream_complete(
         self,
@@ -76,5 +76,4 @@ class LLMProvider(Protocol):
         max_tokens: int = 4096,
         temperature: float = 0.2,
         model: str | None = None,
-    ) -> AsyncIterator[CompletionEvent]:
-        ...
+    ) -> AsyncIterator[CompletionEvent]: ...

@@ -4,6 +4,7 @@ Pulls scalar daily observations for the series we care about: policy rate,
 SEK/EUR, SEK/USD, 10Y govt yield. Series IDs verified against the SWEA
 catalog at production-deploy time; placeholders may need adjustment.
 """
+
 from __future__ import annotations
 
 from collections.abc import AsyncIterator, Sequence
@@ -19,12 +20,11 @@ from app.crawlers.base import BaseCrawler, DateRange, PolitenessConfig
 from app.crawlers.models import RiksbankObservation
 from app.crawlers.registry import register
 
-
 DEFAULT_SERIES = (
-    "SECBREPOEFF",   # policy rate
-    "SEKEURPMI",     # SEK/EUR mid
-    "SEKUSDPMI",     # SEK/USD mid
-    "SEKGVB10YC",    # 10Y govt yield
+    "SECBREPOEFF",  # policy rate
+    "SEKEURPMI",  # SEK/EUR mid
+    "SEKUSDPMI",  # SEK/USD mid
+    "SEKGVB10YC",  # 10Y govt yield
 )
 
 
@@ -85,9 +85,7 @@ class RiksbankCrawler(BaseCrawler[ParsedObs]):
             )
         return out
 
-    async def upsert_raw(
-        self, session: AsyncSession, rows: Sequence[ParsedObs]
-    ) -> int:
+    async def upsert_raw(self, session: AsyncSession, rows: Sequence[ParsedObs]) -> int:
         n = 0
         for r in rows:
             existing = await session.scalar(

@@ -4,10 +4,10 @@ Two ways to use it:
 1. Inject a callable `responder(system, messages, tools)` returning text.
 2. Provide a fixed `text` for trivial cases.
 """
+
 from __future__ import annotations
 
 from collections.abc import AsyncIterator, Callable
-from typing import Any
 
 from app.chat.providers.base import (
     CompletionEvent,
@@ -25,7 +25,9 @@ class MockProvider(LLMProvider):
         self,
         *,
         text: str | None = None,
-        responder: Callable[[str, list[Message], list[ToolSpec] | None], str] | None = None,
+        responder: (
+            Callable[[str, list[Message], list[ToolSpec] | None], str] | None
+        ) = None,
         model: str = "mock-1",
     ) -> None:
         if (text is None) == (responder is None):
@@ -56,7 +58,7 @@ class MockProvider(LLMProvider):
             finish_reason="stop",
         )
 
-    async def stream_complete(  # type: ignore[override]
+    async def stream_complete(
         self,
         *,
         system: str,

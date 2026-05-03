@@ -4,6 +4,7 @@ Every Engine tool invocation writes one row to engine_call. Content-addressed
 caching: same (tool, canonical_params) -> same id, so re-invocations within
 a window may be served from cache rather than recomputed.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -15,9 +16,7 @@ from app.engine.envelope import EngineResult, SourceRef
 from app.engine.models import EngineCall
 
 
-async def get_cached(
-    session: AsyncSession, engine_call_id: str
-) -> EngineCall | None:
+async def get_cached(session: AsyncSession, engine_call_id: str) -> EngineCall | None:
     return await session.get(EngineCall, engine_call_id)
 
 

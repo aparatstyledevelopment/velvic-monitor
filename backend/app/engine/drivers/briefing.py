@@ -5,9 +5,11 @@ Narrator (LLM) with the strict citation prompt, parses + validates the
 response, then persists a briefing_card row. The ONLY engine code that
 calls the LLM (carve-out documented in engine/AGENTS.md and ADR 0003).
 """
+
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from typing import Any
@@ -41,7 +43,6 @@ from app.engine.models import BriefingCard
 from app.engine.registry import engine_tool
 from app.ingestion.models import NewsItem
 
-
 # ----------------------------------------------------------------------------
 # 7 -- get_press_release_summary (the LLM-bound Engine tool carve-out)
 # ----------------------------------------------------------------------------
@@ -66,7 +67,9 @@ async def get_press_release_summary(
 
     summary = item.body_summary
     if summary is None and item.body_text:
-        provider = get_provider(get_settings().anthropic_api_key and "anthropic" or "mock")
+        provider = get_provider(
+            get_settings().anthropic_api_key and "anthropic" or "mock"
+        )
         try:
             result = await provider.complete(
                 system="You write tight one-line IR press-release summaries.",
@@ -88,7 +91,9 @@ async def get_press_release_summary(
                 item.body_summary = summary
                 await session.flush()
         except Exception as e:
-            logger.warning("news_summary_failed", news_item_id=news_item_id, error=str(e))
+            logger.warning(
+                "news_summary_failed", news_item_id=news_item_id, error=str(e)
+            )
             summary = None
 
     return EngineResult(
@@ -131,7 +136,9 @@ async def build_fact_pack(
     pm = await get_price_move(session=session, company_id=company_id, as_of=as_of)
     bm = await get_benchmark_move(session=session, as_of=as_of)
     pr = await get_peer_returns(session=session, company_id=company_id, as_of=as_of)
-    sr = await get_sector_proxy_return(session=session, company_id=company_id, as_of=as_of)
+    sr = await get_sector_proxy_return(
+        session=session, company_id=company_id, as_of=as_of
+    )
     ms = await get_macro_snapshot(session=session, as_of=as_of)
     nl = await get_news_for_company(
         session=session,
@@ -165,8 +172,15 @@ def _bundle(result: EngineResult[Any]) -> dict[str, Any]:
 
 def fact_pack_engine_call_ids(pack: dict[str, Any]) -> list[str]:
     ids: list[str] = []
-    for key in ("price_move", "benchmark", "peer_returns", "sector_proxy",
-                "macro_snapshot", "news", "attribution"):
+    for key in (
+        "price_move",
+        "benchmark",
+        "peer_returns",
+        "sector_proxy",
+        "macro_snapshot",
+        "news",
+        "attribution",
+    ):
         ec_id = pack.get(key, {}).get("engine_call_id")
         if isinstance(ec_id, str) and ec_id.startswith("ec_"):
             ids.append(ec_id)
@@ -193,7 +207,9 @@ async def generate_briefing(
     pack = await build_fact_pack(session, company_id=company_id, as_of=as_of)
     valid_ids = set(fact_pack_engine_call_ids(pack))
 
-    prov = provider or get_provider(get_settings().anthropic_api_key and "anthropic" or "mock")
+    prov = provider or get_provider(
+        get_settings().anthropic_api_key and "anthropic" or "mock"
+    )
 
     user_prompt = (
         f"Company: {company.name} ({company.ticker})\n"
@@ -273,9 +289,6 @@ async def generate_briefing(
 # ----------------------------------------------------------------------------
 
 
-from dataclasses import dataclass
-
-
 @dataclass(frozen=True)
 class ParsedBriefing:
     narrative: str
@@ -313,7 +326,8 @@ def _extract_json(s: str) -> dict[str, Any]:
         if first_nl != -1:
             s = s[first_nl + 1 :]
     try:
-        return json.loads(s)
+        parsed: dict[str, Any] = json.loads(s)
+        return parsed
     except json.JSONDecodeError:
         return {"narrative": s, "smart_chips": []}
 

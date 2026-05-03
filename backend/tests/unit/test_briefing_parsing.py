@@ -1,4 +1,5 @@
 """Unit tests for the briefing-response JSON extractor and parsing."""
+
 from app.engine.drivers.briefing import _extract_json, _parse_briefing_response
 
 
@@ -37,8 +38,6 @@ def test_parse_response_with_uncited_numeric_flagged() -> None:
     assert out.has_uncited_numerics
     assert out.uncited
     # Smart chips capped at 5 even when more provided.
-    raw_many = (
-        '{"narrative": "ok", "smart_chips": ["a","b","c","d","e","f","g"]}'
-    )
+    raw_many = '{"narrative": "ok", "smart_chips": ["a","b","c","d","e","f","g"]}'
     out2 = _parse_briefing_response(raw_many, valid_ids=set())
     assert len(out2.smart_chips) == 5

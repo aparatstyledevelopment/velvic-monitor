@@ -10,6 +10,7 @@ an EngineResult. The decorator wraps the underlying function with:
 The chat orchestrator reads the catalog by `module` filter and exposes
 each tool's signature to the LLM in its provider-native tool-call schema.
 """
+
 from __future__ import annotations
 
 import inspect
@@ -58,7 +59,10 @@ def engine_tool(
     params_model: type[BaseModel] | None = None,
     returns_model: type[BaseModel] | None = None,
     tags: tuple[str, ...] = (),
-) -> Callable[[Callable[..., Awaitable[EngineResult[Any]]]], Callable[..., Awaitable[EngineResult[Any]]]]:
+) -> Callable[
+    [Callable[..., Awaitable[EngineResult[Any]]]],
+    Callable[..., Awaitable[EngineResult[Any]]],
+]:
     """Register a function as an Engine tool.
 
     The wrapped function MUST accept a session as its first parameter and
@@ -85,27 +89,25 @@ def engine_tool(
             bound.apply_defaults()
             session: AsyncSession = bound.arguments["session"]
             tool_params = {
-                k: _to_jsonable(v)
-                for k, v in bound.arguments.items()
-                if k != "session"
+                k: _to_jsonable(v) for k, v in bound.arguments.items() if k != "session"
             }
             call_id = hash_call_id(tool_name=name, params=tool_params)
 
             cached = await ledger_mod.get_cached(session, call_id)
             if cached is not None and cached.status == "ok":
                 returns = returns_model
-                data_obj: BaseModel | dict[str, Any]
+                data_obj: Any
                 if returns is not None:
                     data_obj = returns.model_validate(cached.result)
                 else:
-                    data_obj = cached.result  # type: ignore[assignment]
+                    data_obj = cached.result
                 return EngineResult(
                     engine_call_id=cached.id,
                     tool_name=cached.tool_name,
                     module=cached.module,
                     params=cached.params,
-                    data=data_obj,  # type: ignore[arg-type]
-                    sources=[],  # rehydrate lightly; full sources re-read elsewhere
+                    data=data_obj,
+                    sources=[],
                     computed_at=cached.called_at,
                     engine_version=cached.engine_version,
                     latency_ms=cached.latency_ms,

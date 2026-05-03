@@ -3,6 +3,7 @@
 Uses the v8 chart endpoint (no API key, free tier ToS for non-commercial pilots).
 Production deployments should swap for a paid feed -- see DATA_SOURCES.md.
 """
+
 from __future__ import annotations
 
 from collections.abc import AsyncIterator, Sequence
@@ -47,11 +48,13 @@ class YahooFinanceCrawler(BaseCrawler[ParsedBar]):
         super().__init__(http_client=http_client)
         self._symbols = symbols or []
 
-    async def fetch_batches(
-        self, window: DateRange
-    ) -> AsyncIterator[dict[str, Any]]:
-        period1 = int(datetime.combine(window.start, datetime.min.time(), UTC).timestamp())
-        period2 = int(datetime.combine(window.end, datetime.max.time(), UTC).timestamp())
+    async def fetch_batches(self, window: DateRange) -> AsyncIterator[dict[str, Any]]:
+        period1 = int(
+            datetime.combine(window.start, datetime.min.time(), UTC).timestamp()
+        )
+        period2 = int(
+            datetime.combine(window.end, datetime.max.time(), UTC).timestamp()
+        )
         async with self.http() as client:
             for symbol in self._symbols:
                 resp = await self.get_with_retry(
@@ -112,9 +115,7 @@ class YahooFinanceCrawler(BaseCrawler[ParsedBar]):
             )
         return out
 
-    async def upsert_raw(
-        self, session: AsyncSession, rows: Sequence[ParsedBar]
-    ) -> int:
+    async def upsert_raw(self, session: AsyncSession, rows: Sequence[ParsedBar]) -> int:
         if not rows:
             return 0
         n = 0

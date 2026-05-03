@@ -3,6 +3,7 @@
 FI publishes daily snapshots; we ingest the latest, dedup by
 (issuer, position_holder, position_date).
 """
+
 from __future__ import annotations
 
 import csv

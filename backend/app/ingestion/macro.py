@@ -4,9 +4,13 @@ Each upstream series is mapped to a stable internal series_code so the
 Engine never has to know which source produced a value. The mapping is
 explicit and tested.
 """
+
 from __future__ import annotations
 
+from collections.abc import Callable, Sequence
 from datetime import date, datetime, timedelta
+from decimal import Decimal
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,25 +22,22 @@ from app.crawlers.models import (
 )
 from app.ingestion.models import MacroObservation
 
-
 # Maps upstream id -> (internal series_code, unit, source label)
 RIKSBANK_MAP: dict[str, tuple[str, str]] = {
     "SECBREPOEFF": ("SE.POLICY_RATE", "%"),
-    "SEKEURPMI":   ("SE.SEK_PER_EUR", "SEK"),
-    "SEKUSDPMI":   ("SE.SEK_PER_USD", "SEK"),
-    "SEKGVB10YC":  ("SE.GOVT_10Y_YIELD", "%"),
+    "SEKEURPMI": ("SE.SEK_PER_EUR", "SEK"),
+    "SEKUSDPMI": ("SE.SEK_PER_USD", "SEK"),
+    "SEKGVB10YC": ("SE.GOVT_10Y_YIELD", "%"),
 }
 
 FRED_MAP: dict[str, tuple[str, str]] = {
     "DCOILBRENTEU": ("WORLD.OIL_BRENT", "USD/bbl"),
-    "DGS10":        ("US.GOVT_10Y_YIELD", "%"),
-    "DEXUSEU":      ("US.USD_PER_EUR", "USD"),
+    "DGS10": ("US.GOVT_10Y_YIELD", "%"),
+    "DEXUSEU": ("US.USD_PER_EUR", "USD"),
 }
 
 
-async def ingest_macro(
-    session: AsyncSession, *, since: date | None = None
-) -> int:
+async def ingest_macro(session: AsyncSession, *, since: date | None = None) -> int:
     since = since or (date.today() - timedelta(days=14))
     threshold = datetime.combine(since, datetime.min.time())
 
@@ -49,12 +50,16 @@ async def ingest_macro(
 
 async def _ingest_riksbank(session: AsyncSession, threshold: datetime) -> int:
     rows = (
-        await session.execute(
-            select(RiksbankObservation).where(
-                RiksbankObservation.fetched_at >= threshold
+        (
+            await session.execute(
+                select(RiksbankObservation).where(
+                    RiksbankObservation.fetched_at >= threshold
+                )
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     return await _promote(
         session, rows, lambda r: RIKSBANK_MAP.get(r.series_id), source="riksbank"
     )
@@ -62,10 +67,14 @@ async def _ingest_riksbank(session: AsyncSession, threshold: datetime) -> int:
 
 async def _ingest_fred(session: AsyncSession, threshold: datetime) -> int:
     rows = (
-        await session.execute(
-            select(FredObservation).where(FredObservation.fetched_at >= threshold)
+        (
+            await session.execute(
+                select(FredObservation).where(FredObservation.fetched_at >= threshold)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     return await _promote(
         session, rows, lambda r: FRED_MAP.get(r.series_id), source="fred"
     )
@@ -73,10 +82,14 @@ async def _ingest_fred(session: AsyncSession, threshold: datetime) -> int:
 
 async def _ingest_scb(session: AsyncSession, threshold: datetime) -> int:
     rows = (
-        await session.execute(
-            select(ScbObservation).where(ScbObservation.fetched_at >= threshold)
+        (
+            await session.execute(
+                select(ScbObservation).where(ScbObservation.fetched_at >= threshold)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     upserted = 0
     for r in rows:
         if r.value is None:
@@ -97,8 +110,8 @@ async def _ingest_scb(session: AsyncSession, threshold: datetime) -> int:
 
 async def _promote(
     session: AsyncSession,
-    rows: list,
-    map_fn,
+    rows: Sequence[Any],
+    map_fn: Callable[[Any], tuple[str, str] | None],
     *,
     source: str,
 ) -> int:
@@ -126,7 +139,7 @@ async def _upsert_one(
     series_code: str,
     unit: str,
     obs_date: date,
-    value,
+    value: Decimal,
     source: str,
     source_row_id: int,
 ) -> int:

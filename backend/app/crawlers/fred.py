@@ -1,4 +1,5 @@
 """FRED (St Louis Fed) macro-series crawler. Free API key required."""
+
 from __future__ import annotations
 
 from collections.abc import AsyncIterator, Sequence
@@ -15,11 +16,10 @@ from app.crawlers.base import BaseCrawler, DateRange, PolitenessConfig
 from app.crawlers.models import FredObservation
 from app.crawlers.registry import register
 
-
 DEFAULT_SERIES = (
     "DCOILBRENTEU",  # Brent crude
-    "DGS10",         # 10Y US Treasury
-    "DEXUSEU",       # USD/EUR
+    "DGS10",  # 10Y US Treasury
+    "DEXUSEU",  # USD/EUR
 )
 
 

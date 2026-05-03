@@ -5,6 +5,7 @@ Intended for local development and the first deploy's smoke test.
 
 Run: `python -m app.admin.backfill`
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -32,10 +33,10 @@ async def backfill(*, days: int = 14) -> None:
     window = DateRange.trailing(days=days)
     async with SessionLocal() as session:
         rows = (
-            await session.execute(
-                select(Company).where(Company.active.is_(True))
-            )
-        ).scalars().all()
+            (await session.execute(select(Company).where(Company.active.is_(True))))
+            .scalars()
+            .all()
+        )
         symbols = [c.yahoo_symbol for c in rows]
         slug_map = {c.mfn_slug: c.ticker for c in rows if c.mfn_slug}
         ir_feeds = [(c.id, c.ir_rss_url) for c in rows if c.ir_rss_url]

@@ -2,6 +2,7 @@
 
 Times are Europe/Stockholm; celery_app sets the timezone.
 """
+
 from __future__ import annotations
 
 from celery.schedules import crontab

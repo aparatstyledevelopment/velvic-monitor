@@ -4,13 +4,13 @@ Each task is a thin sync wrapper that bootstraps an asyncio runtime and
 delegates to a coroutine. Tasks are idempotent. Failures retry with
 exponential backoff up to 3 times before alerting.
 """
+
 from __future__ import annotations
 
 import asyncio
 from datetime import date, timedelta
 from typing import Any
 
-from celery import shared_task
 from sqlalchemy import select
 
 from app.auth.models import Company, OrgCompanyAccess
@@ -25,7 +25,6 @@ from app.ingestion.macro import ingest_macro
 from app.ingestion.news import ingest_news
 from app.ingestion.prices import ingest_prices
 from app.pipeline.celery_app import celery_app
-
 
 # ---------------------------------------------------------------------- crawls
 
@@ -44,8 +43,14 @@ async def _crawl_yahoo() -> int:
 
     async with SessionLocal() as session:
         symbols = (
-            await session.execute(select(Company.yahoo_symbol).where(Company.active.is_(True)))
-        ).scalars().all()
+            (
+                await session.execute(
+                    select(Company.yahoo_symbol).where(Company.active.is_(True))
+                )
+            )
+            .scalars()
+            .all()
+        )
         if not symbols:
             return 0
         crawler = YahooFinanceCrawler(symbols=list(symbols))
@@ -79,7 +84,9 @@ async def _crawl_mfn() -> int:
         return report.rows_inserted
 
 
-@celery_app.task(name="crawl.riksbank", bind=True, max_retries=3, default_retry_delay=60)
+@celery_app.task(
+    name="crawl.riksbank", bind=True, max_retries=3, default_retry_delay=60
+)
 def crawl_riksbank(self) -> int:
     return _run(_simple_crawl("riksbank", days=7))
 
@@ -99,12 +106,16 @@ def crawl_esap(self) -> int:
     return _run(_simple_crawl("esap", days=2))
 
 
-@celery_app.task(name="crawl.fi_insider", bind=True, max_retries=3, default_retry_delay=60)
+@celery_app.task(
+    name="crawl.fi_insider", bind=True, max_retries=3, default_retry_delay=60
+)
 def crawl_fi_insider(self) -> int:
     return _run(_simple_crawl("fi_insider", days=2))
 
 
-@celery_app.task(name="crawl.fi_short", bind=True, max_retries=3, default_retry_delay=60)
+@celery_app.task(
+    name="crawl.fi_short", bind=True, max_retries=3, default_retry_delay=60
+)
 def crawl_fi_short(self) -> int:
     return _run(_simple_crawl("fi_short", days=1))
 
@@ -168,7 +179,9 @@ def briefing_generate_for_company(
 async def _briefing_generate_for_company(
     company_id: int, as_of_iso: str | None
 ) -> dict[str, Any]:
-    as_of = date.fromisoformat(as_of_iso) if as_of_iso else date.today() - timedelta(days=1)
+    as_of = (
+        date.fromisoformat(as_of_iso) if as_of_iso else date.today() - timedelta(days=1)
+    )
     async with SessionLocal() as session:
         await compute_attribution(session, company_id=company_id, as_of=as_of)
         row = await generate_briefing(session, company_id=company_id, as_of=as_of)
@@ -191,14 +204,18 @@ async def _briefing_generate_for_all() -> int:
     that all orgs share -- per-org peer overrides arrive in Phase 4."""
     async with SessionLocal() as session:
         rows = (
-            await session.execute(
-                select(Company.id)
-                .join(OrgCompanyAccess, OrgCompanyAccess.company_id == Company.id)
-                .where(OrgCompanyAccess.is_primary.is_(True))
-                .where(Company.active.is_(True))
-                .distinct()
+            (
+                await session.execute(
+                    select(Company.id)
+                    .join(OrgCompanyAccess, OrgCompanyAccess.company_id == Company.id)
+                    .where(OrgCompanyAccess.is_primary.is_(True))
+                    .where(Company.active.is_(True))
+                    .distinct()
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
     n = 0
     for cid in rows:
         try:

@@ -49,9 +49,7 @@ class DailyAttribution(Base):
     engine_version: Mapped[str] = mapped_column(Text, nullable=False)
 
     __table_args__ = (
-        UniqueConstraint(
-            "company_id", "as_of_date", name="daily_attribution_unique"
-        ),
+        UniqueConstraint("company_id", "as_of_date", name="daily_attribution_unique"),
     )
 
 

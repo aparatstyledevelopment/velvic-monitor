@@ -3,6 +3,7 @@
 Each onboarded company carries its own ir_rss_url. We poll all configured
 feeds in a single crawler run; dedup by (company_id, guid).
 """
+
 from __future__ import annotations
 
 from collections.abc import AsyncIterator, Sequence
@@ -75,16 +76,22 @@ class CompanyIrRssCrawler(BaseCrawler[ParsedRss]):
         for it in items:
             guid = _first_text(it, ["guid", "{http://www.w3.org/2005/Atom}id"])
             title = _first_text(it, ["title", "{http://www.w3.org/2005/Atom}title"])
-            link = _first_text(
-                it, ["link"], attr_fallback="href"
-            )
+            link = _first_text(it, ["link"], attr_fallback="href")
             pub = _first_text(
                 it,
-                ["pubDate", "{http://www.w3.org/2005/Atom}updated", "{http://www.w3.org/2005/Atom}published"],
+                [
+                    "pubDate",
+                    "{http://www.w3.org/2005/Atom}updated",
+                    "{http://www.w3.org/2005/Atom}published",
+                ],
             )
             desc = _first_text(
                 it,
-                ["description", "{http://www.w3.org/2005/Atom}summary", "{http://www.w3.org/2005/Atom}content"],
+                [
+                    "description",
+                    "{http://www.w3.org/2005/Atom}summary",
+                    "{http://www.w3.org/2005/Atom}content",
+                ],
             )
             if not guid or not title or not pub:
                 continue
@@ -109,9 +116,7 @@ class CompanyIrRssCrawler(BaseCrawler[ParsedRss]):
             )
         return out
 
-    async def upsert_raw(
-        self, session: AsyncSession, rows: Sequence[ParsedRss]
-    ) -> int:
+    async def upsert_raw(self, session: AsyncSession, rows: Sequence[ParsedRss]) -> int:
         n = 0
         for r in rows:
             existing = await session.scalar(

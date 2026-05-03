@@ -3,6 +3,7 @@
 For a given (company_id, as_of), compute and upsert the attribution row:
   return vs benchmark, return vs sector proxy, relative deltas.
 """
+
 from __future__ import annotations
 
 from datetime import date
@@ -13,13 +14,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import Company
 from app.core.config import get_settings
-from app.engine.drivers.types import BenchmarkMove, PriceMove, SectorReturn
 from app.engine.drivers.tools import (
     BENCHMARK_TICKER,
     get_benchmark_move,
     get_price_move,
     get_sector_proxy_return,
 )
+from app.engine.drivers.types import BenchmarkMove, PriceMove, SectorReturn
 from app.engine.models import DailyAttribution
 
 

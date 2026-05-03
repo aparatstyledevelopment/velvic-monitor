@@ -3,6 +3,7 @@
 MFN serves per-issuer Atom/RSS feeds that we ingest verbatim into Tier-1.
 We extract MAR flag from feed-level metadata when present.
 """
+
 from __future__ import annotations
 
 import re
@@ -76,7 +77,9 @@ class MfnCrawler(BaseCrawler[ParsedMfn]):
             updated = _text(entry, "atom:updated") or _text(entry, "atom:published")
             try:
                 published_at = (
-                    datetime.fromisoformat(updated.replace("Z", "+00:00")) if updated else datetime.utcnow()
+                    datetime.fromisoformat(updated.replace("Z", "+00:00"))
+                    if updated
+                    else datetime.utcnow()
                 )
             except ValueError:
                 continue
@@ -101,9 +104,7 @@ class MfnCrawler(BaseCrawler[ParsedMfn]):
             )
         return out
 
-    async def upsert_raw(
-        self, session: AsyncSession, rows: Sequence[ParsedMfn]
-    ) -> int:
+    async def upsert_raw(self, session: AsyncSession, rows: Sequence[ParsedMfn]) -> int:
         n = 0
         for r in rows:
             existing = await session.scalar(

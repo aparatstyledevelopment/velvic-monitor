@@ -21,9 +21,7 @@ def test_parses_single_citation_and_strips_marker() -> None:
 
 
 def test_multiple_citations_share_text() -> None:
-    text = (
-        "VOLV-B closed -2.1% [ec_aaaaaa] vs OMX -0.4% [ec_bbbbbb]."
-    )
+    text = "VOLV-B closed -2.1% [ec_aaaaaa] vs OMX -0.4% [ec_bbbbbb]."
     result = parse_citations(text, {"ec_aaaaaa", "ec_bbbbbb"})
     assert "[ec_" not in result.text
     assert len(result.spans) == 2
@@ -31,8 +29,9 @@ def test_multiple_citations_share_text() -> None:
 
 
 def test_unknown_citation_id_raises() -> None:
+    # ids must be valid hex; the unknown is hex-shaped but not in the allow-list.
     with pytest.raises(ValueError):
-        parse_citations("close 1.2% [ec_unknown1]", {"ec_other123"})
+        parse_citations("close 1.2% [ec_deadbeef]", {"ec_cafebabe"})
 
 
 def test_uncited_numeric_detected() -> None:

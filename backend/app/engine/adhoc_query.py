@@ -9,6 +9,7 @@ statement timeout. The Postgres role itself is also least-privilege
 Approach: parse with sqlglot, walk the AST, reject anything not on the
 allow-list. Returns up to 1000 rows.
 """
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -78,11 +79,10 @@ def validate_sql(sql: str) -> str:
         sqlglot.exp.Alter,
         sqlglot.exp.Command,
     )
+    # sqlglot 25.x: walk() yields Expression nodes directly.
     for node in parsed.walk():
-        # walk() yields tuples (node, parent, ...) in older sqlglot; normalize
-        actual = node[0] if isinstance(node, tuple) else node
-        if isinstance(actual, forbidden):
-            raise ValidationError(f"forbidden statement type: {type(actual).__name__}")
+        if isinstance(node, forbidden):
+            raise ValidationError(f"forbidden statement type: {type(node).__name__}")
 
     # Tables referenced must all be allow-listed views
     for table in parsed.find_all(sqlglot.exp.Table):
@@ -99,11 +99,17 @@ def validate_sql(sql: str) -> str:
     # Inject LIMIT if absent or shrink if too large
     limit_node = parsed.args.get("limit")
     if limit_node is None:
-        parsed.set("limit", sqlglot.exp.Limit(expression=sqlglot.exp.Literal.number(MAX_LIMIT)))
+        parsed.set(
+            "limit", sqlglot.exp.Limit(expression=sqlglot.exp.Literal.number(MAX_LIMIT))
+        )
     else:
         existing = limit_node.expression
         try:
-            current = int(existing.this) if isinstance(existing, sqlglot.exp.Literal) else MAX_LIMIT
+            current = (
+                int(existing.this)
+                if isinstance(existing, sqlglot.exp.Literal)
+                else MAX_LIMIT
+            )
         except (TypeError, ValueError):
             current = MAX_LIMIT
         if current > MAX_LIMIT:
@@ -126,9 +132,7 @@ def validate_sql(sql: str) -> str:
     ),
     cost_class="moderate",
 )
-async def ad_hoc_query(
-    *, session: AsyncSession, sql: str
-) -> EngineResult[QueryResult]:
+async def ad_hoc_query(*, session: AsyncSession, sql: str) -> EngineResult[QueryResult]:
     safe_sql = validate_sql(sql)
     # Apply a statement timeout for this transaction only.
     await session.execute(text(f"SET LOCAL statement_timeout = {STATEMENT_TIMEOUT_MS}"))
@@ -163,7 +167,7 @@ async def ad_hoc_query(
 
 
 def _to_jsonable(v: Any) -> Any:
-    if v is None or isinstance(v, (str, int, float, bool)):
+    if v is None or isinstance(v, str | int | float | bool):
         return v
     if hasattr(v, "isoformat"):
         return v.isoformat()

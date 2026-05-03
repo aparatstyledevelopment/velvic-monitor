@@ -2,6 +2,7 @@
 
 FI publishes a CSV of insider transactions; we parse and persist verbatim.
 """
+
 from __future__ import annotations
 
 import csv
@@ -64,7 +65,13 @@ class FiInsiderCrawler(BaseCrawler[ParsedInsider]):
         out: list[ParsedInsider] = []
         reader = csv.DictReader(io.StringIO(text), delimiter=";")
         for row in reader:
-            pub_id = (row.get("Publiceringsdatum") or "") + "|" + (row.get("Utgivare") or "") + "|" + (row.get("PersonILedandeStallningNamn") or "")
+            pub_id = (
+                (row.get("Publiceringsdatum") or "")
+                + "|"
+                + (row.get("Utgivare") or "")
+                + "|"
+                + (row.get("PersonILedandeStallningNamn") or "")
+            )
             issuer = row.get("Utgivare") or ""
             person = row.get("PersonILedandeStallningNamn") or ""
             if not issuer or not person:

@@ -3,6 +3,7 @@
 Phase-1 surface: a minimal `upsert_company` used by the demo seeder and
 the admin onboarding flow that arrives in Phase 4.
 """
+
 from __future__ import annotations
 
 from sqlalchemy import select

@@ -27,7 +27,7 @@ class DateRange:
             raise ValueError(f"start {self.start} after end {self.end}")
 
     @classmethod
-    def trailing(cls, days: int, *, end: date | None = None) -> "DateRange":
+    def trailing(cls, days: int, *, end: date | None = None) -> DateRange:
         e = end or date.today()
         return cls(start=e - timedelta(days=days), end=e)
 

@@ -7,6 +7,7 @@ Source pane renders the SourceRefs.
 
 See ADR 0003.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -48,6 +49,8 @@ def hash_call_id(*, tool_name: str, params: dict[str, Any]) -> str:
     Same tool_name + same canonical params -> same id. Used for cache reuse
     in the Engine ledger.
     """
-    blob = json.dumps({"tool": tool_name, "params": params}, sort_keys=True, default=str)
+    blob = json.dumps(
+        {"tool": tool_name, "params": params}, sort_keys=True, default=str
+    )
     digest = hashlib.sha256(blob.encode("utf-8")).hexdigest()
     return f"ec_{digest[:12]}"

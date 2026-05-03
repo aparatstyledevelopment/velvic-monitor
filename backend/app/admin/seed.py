@@ -2,6 +2,7 @@
 
 Run via `python -m app.admin.seed`. Idempotent.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -142,7 +143,9 @@ async def seed_demo_data() -> None:
                 )
 
         await session.commit()
-        print(f"seeded {len(SEED)} demo tickers + {len(SEED) * (len(industrials) - 1)} peer rows (industrials cohort)")
+        print(
+            f"seeded {len(SEED)} demo tickers + {len(SEED) * (len(industrials) - 1)} peer rows (industrials cohort)"
+        )
 
 
 def main() -> None:

@@ -11,7 +11,7 @@ from app.ingestion.models import MacroObservation
 async def latest_value_on_or_before(
     session: AsyncSession, *, series_code: str, as_of: date
 ) -> MacroObservation | None:
-    return await session.scalar(
+    result: MacroObservation | None = await session.scalar(
         select(MacroObservation)
         .where(
             MacroObservation.series_code == series_code,
@@ -20,3 +20,4 @@ async def latest_value_on_or_before(
         .order_by(desc(MacroObservation.observation_date))
         .limit(1)
     )
+    return result

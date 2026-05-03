@@ -5,11 +5,13 @@ Revises: 0001
 Create Date: 2026-04-30
 
 """
+
 from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
+
+from alembic import op
 
 revision: str = "0002"
 down_revision: str | Sequence[str] | None = "0001"
@@ -107,9 +109,7 @@ def upgrade() -> None:
         sa.Column("adj_close", sa.Numeric(20, 6), nullable=True),
         sa.Column("volume", sa.BigInteger(), nullable=True),
         sa.Column("raw_payload", postgresql.JSONB(), nullable=False),
-        sa.Column(
-            "fetched_at", _ts(), nullable=False, server_default=sa.text("now()")
-        ),
+        sa.Column("fetched_at", _ts(), nullable=False, server_default=sa.text("now()")),
         sa.Column(
             "superseded_by",
             sa.BigInteger(),
@@ -136,9 +136,7 @@ def upgrade() -> None:
         sa.Column("mar_flagged", sa.Boolean(), nullable=True),
         sa.Column("language", sa.Text(), nullable=True),
         sa.Column("raw_payload", postgresql.JSONB(), nullable=False),
-        sa.Column(
-            "fetched_at", _ts(), nullable=False, server_default=sa.text("now()")
-        ),
+        sa.Column("fetched_at", _ts(), nullable=False, server_default=sa.text("now()")),
     )
     op.create_index(
         "mfn_press_release_lookup",
@@ -153,9 +151,7 @@ def upgrade() -> None:
         sa.Column("observation_date", sa.Date(), nullable=False),
         sa.Column("value", sa.Numeric(20, 8), nullable=True),
         sa.Column("raw_payload", postgresql.JSONB(), nullable=False),
-        sa.Column(
-            "fetched_at", _ts(), nullable=False, server_default=sa.text("now()")
-        ),
+        sa.Column("fetched_at", _ts(), nullable=False, server_default=sa.text("now()")),
     )
     op.create_index(
         "riksbank_observation_unique",
@@ -173,9 +169,7 @@ def upgrade() -> None:
         sa.Column("value", sa.Numeric(20, 8), nullable=True),
         sa.Column("unit", sa.Text(), nullable=True),
         sa.Column("raw_payload", postgresql.JSONB(), nullable=False),
-        sa.Column(
-            "fetched_at", _ts(), nullable=False, server_default=sa.text("now()")
-        ),
+        sa.Column("fetched_at", _ts(), nullable=False, server_default=sa.text("now()")),
     )
     op.create_index(
         "scb_observation_lookup", "scb_observation", ["table_id", "observation_date"]
@@ -188,9 +182,7 @@ def upgrade() -> None:
         sa.Column("observation_date", sa.Date(), nullable=False),
         sa.Column("value", sa.Numeric(20, 8), nullable=True),
         sa.Column("raw_payload", postgresql.JSONB(), nullable=False),
-        sa.Column(
-            "fetched_at", _ts(), nullable=False, server_default=sa.text("now()")
-        ),
+        sa.Column("fetched_at", _ts(), nullable=False, server_default=sa.text("now()")),
     )
     op.create_index(
         "fred_observation_unique",
@@ -210,9 +202,7 @@ def upgrade() -> None:
         sa.Column("filed_at", _ts(), nullable=False),
         sa.Column("source_url", sa.Text(), nullable=True),
         sa.Column("raw_payload", postgresql.JSONB(), nullable=False),
-        sa.Column(
-            "fetched_at", _ts(), nullable=False, server_default=sa.text("now()")
-        ),
+        sa.Column("fetched_at", _ts(), nullable=False, server_default=sa.text("now()")),
     )
     op.create_index("esap_filing_lookup", "esap_filing", ["ticker", "filed_at"])
 
@@ -230,9 +220,7 @@ def upgrade() -> None:
         sa.Column("currency", sa.Text(), nullable=True),
         sa.Column("transaction_date", sa.Date(), nullable=False),
         sa.Column("raw_payload", postgresql.JSONB(), nullable=False),
-        sa.Column(
-            "fetched_at", _ts(), nullable=False, server_default=sa.text("now()")
-        ),
+        sa.Column("fetched_at", _ts(), nullable=False, server_default=sa.text("now()")),
     )
     op.create_index(
         "fi_insider_lookup",
@@ -248,13 +236,9 @@ def upgrade() -> None:
         sa.Column("position_pct", sa.Numeric(8, 4), nullable=False),
         sa.Column("position_date", sa.Date(), nullable=False),
         sa.Column("raw_payload", postgresql.JSONB(), nullable=False),
-        sa.Column(
-            "fetched_at", _ts(), nullable=False, server_default=sa.text("now()")
-        ),
+        sa.Column("fetched_at", _ts(), nullable=False, server_default=sa.text("now()")),
     )
-    op.create_index(
-        "fi_short_lookup", "fi_short_position", ["issuer", "position_date"]
-    )
+    op.create_index("fi_short_lookup", "fi_short_position", ["issuer", "position_date"])
 
     op.create_table(
         "company_ir_rss_item",
@@ -272,9 +256,7 @@ def upgrade() -> None:
         sa.Column("published_at", _ts(), nullable=False),
         sa.Column("source_url", sa.Text(), nullable=False),
         sa.Column("raw_payload", postgresql.JSONB(), nullable=False),
-        sa.Column(
-            "fetched_at", _ts(), nullable=False, server_default=sa.text("now()")
-        ),
+        sa.Column("fetched_at", _ts(), nullable=False, server_default=sa.text("now()")),
         sa.UniqueConstraint("company_id", "guid", name="company_ir_rss_item_unique"),
     )
 
@@ -307,9 +289,7 @@ def upgrade() -> None:
         ),
         sa.UniqueConstraint("company_id", "trading_date", name="price_bar_unique"),
     )
-    op.create_index(
-        "price_bar_lookup", "price_bar", ["company_id", "trading_date"]
-    )
+    op.create_index("price_bar_lookup", "price_bar", ["company_id", "trading_date"])
 
     op.create_table(
         "news_item",
@@ -343,9 +323,7 @@ def upgrade() -> None:
         ),
         sa.UniqueConstraint("source", "source_row_id", name="news_item_unique"),
     )
-    op.create_index(
-        "news_item_lookup", "news_item", ["company_id", "published_at"]
-    )
+    op.create_index("news_item_lookup", "news_item", ["company_id", "published_at"])
     op.execute(
         "CREATE INDEX news_item_search "
         "ON news_item USING gin(to_tsvector('simple', headline))"
@@ -502,9 +480,7 @@ def upgrade() -> None:
             "status IN ('ok','error','timeout')", name="engine_call_status_check"
         ),
     )
-    op.create_index(
-        "engine_call_lookup", "engine_call", ["tool_name", "called_at"]
-    )
+    op.create_index("engine_call_lookup", "engine_call", ["tool_name", "called_at"])
 
     # ------------------------------------------------------------------
     # Read-only role for ad_hoc_query

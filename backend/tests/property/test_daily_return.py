@@ -3,13 +3,13 @@
 Catches edge cases AI-generated code tends to miss: zero divisor, negative
 returns, very small/large prices, exact-equal closes (should be 0%).
 """
+
 from decimal import Decimal
 
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from app.engine.shared.prices import daily_return_pct
-
 
 # Bounded positive prices.
 prices = st.decimals(

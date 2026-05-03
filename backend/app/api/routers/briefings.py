@@ -105,10 +105,14 @@ async def briefing_evidence(
             detail={"code": "no_briefing", "message": "no briefing for that date"},
         )
     calls = (
-        await session.execute(
-            select(EngineCall).where(EngineCall.id.in_(row.engine_call_ids))
+        (
+            await session.execute(
+                select(EngineCall).where(EngineCall.id.in_(row.engine_call_ids))
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     return [EngineCallOut(**envelope_from_row(c)) for c in calls]
 
 

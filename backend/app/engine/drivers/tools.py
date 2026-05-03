@@ -4,6 +4,7 @@ Ten tools, all returning EngineResult. Reads only Tier-2 / Tier-3 (the
 hard rule). The decorator wires content-addressed caching + ledger
 persistence; tool bodies focus on the calculation.
 """
+
 from __future__ import annotations
 
 from datetime import UTC, date, datetime, timedelta
@@ -35,7 +36,6 @@ from app.engine.shared import macro as shared_macro
 from app.engine.shared import peers as shared_peers
 from app.engine.shared import prices as shared_prices
 from app.ingestion.models import NewsItem
-
 
 BENCHMARK_TICKER = "^OMXSPI"
 BENCHMARK_LABEL = "OMX Stockholm PI"
@@ -100,7 +100,9 @@ async def get_price_move(
     )
 
     daily_return = (
-        shared_prices.daily_return_pct(last.close, prior.close) if prior is not None else None
+        shared_prices.daily_return_pct(last.close, prior.close)
+        if prior is not None
+        else None
     )
 
     sources = [
@@ -193,7 +195,9 @@ async def get_benchmark_move(
         session, company_id=benchmark.id, before=last.trading_date
     )
     daily_return = (
-        shared_prices.daily_return_pct(last.close, prior.close) if prior is not None else None
+        shared_prices.daily_return_pct(last.close, prior.close)
+        if prior is not None
+        else None
     )
     sources = [
         SourceRef(
@@ -238,7 +242,14 @@ async def get_peer_returns(
             session, company_id=peer.id, as_of=as_of
         )
         if last is None:
-            out.append(PeerReturn(company_id=peer.id, ticker=peer.ticker, name=peer.name, daily_return_pct=None))
+            out.append(
+                PeerReturn(
+                    company_id=peer.id,
+                    ticker=peer.ticker,
+                    name=peer.name,
+                    daily_return_pct=None,
+                )
+            )
             continue
         prior = await shared_prices.prior_close(
             session, company_id=peer.id, before=last.trading_date
@@ -249,7 +260,12 @@ async def get_peer_returns(
             else None
         )
         out.append(
-            PeerReturn(company_id=peer.id, ticker=peer.ticker, name=peer.name, daily_return_pct=ret)
+            PeerReturn(
+                company_id=peer.id,
+                ticker=peer.ticker,
+                name=peer.name,
+                daily_return_pct=ret,
+            )
         )
         sources.append(
             SourceRef(

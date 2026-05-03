@@ -1,12 +1,12 @@
 """Provider factory. Picks an implementation by name and provides a
 hook for tests to inject overrides.
 """
+
 from __future__ import annotations
 
 from app.chat.providers.anthropic import AnthropicProvider
 from app.chat.providers.base import LLMProvider
 from app.chat.providers.mock import MockProvider
-
 
 _OVERRIDE: LLMProvider | None = None
 
