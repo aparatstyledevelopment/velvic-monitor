@@ -78,4 +78,5 @@ databases:
   - name: redis
     engine: REDIS
     version: "7"
-    production: false
+    production: true
+    size: db-s-1vcpu-1gb
