@@ -1,8 +1,22 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def _normalize_async_db_url(raw: str) -> str:
+    """Accept the URL shape DO Managed Postgres injects and coerce to asyncpg.
+
+    DO injects `postgresql://user:pw@host:port/db?sslmode=require`. SQLAlchemy
+    with asyncpg needs `postgresql+asyncpg://...?ssl=require` (asyncpg uses the
+    `ssl` query param, not psycopg's `sslmode`).
+    """
+    if raw.startswith("postgresql://") and "+asyncpg" not in raw:
+        raw = "postgresql+asyncpg://" + raw[len("postgresql://") :]
+    if "sslmode=" in raw:
+        raw = raw.replace("sslmode=", "ssl=")
+    return raw
 
 
 class Settings(BaseSettings):
@@ -35,6 +49,13 @@ class Settings(BaseSettings):
     google_api_key: str | None = None
     fred_api_key: str | None = None
     postmark_token: str | None = None
+
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def _coerce_database_url(cls, v: object) -> object:
+        if isinstance(v, str):
+            return _normalize_async_db_url(v)
+        return v
 
 
 @lru_cache

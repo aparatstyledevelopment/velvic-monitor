@@ -12,7 +12,7 @@ services:
       pip install --upgrade pip
       pip install -e .
     run_command: uvicorn app.main:app --host 0.0.0.0 --port 8080 --workers 2
-    pre_deploy_command: cd /app && alembic upgrade head
+    pre_deploy_command: alembic upgrade head
     instance_size_slug: basic-xs
     instance_count: 1
     autoscaling:

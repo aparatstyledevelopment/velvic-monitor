@@ -25,7 +25,11 @@ target_metadata = Base.metadata
 
 
 def _sync_url(url: str) -> str:
-    return url.replace("+asyncpg", "")
+    """Translate the asyncpg-style URL to one psycopg accepts for offline mode."""
+    sync = url.replace("+asyncpg", "")
+    # asyncpg uses ?ssl=require; psycopg uses ?sslmode=require.
+    sync = sync.replace("ssl=", "sslmode=")
+    return sync
 
 
 def run_migrations_offline() -> None:
