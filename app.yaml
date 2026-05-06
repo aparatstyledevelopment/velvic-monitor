@@ -3,12 +3,18 @@ region: fra1
 
 # Cheapest-possible footprint for Phase-1 validation:
 # - basic-xxs ($5/mo) on every app component (no autoscaling).
-# - production: false on managed Postgres + Redis to use the dev tiers
-#   (single node, no HA, no daily backups beyond 1).
+# - Postgres on dev tier (production: false, ~$7/mo).
+# - Redis OMITTED. DO doesn't allow inline-provisioned Redis on the dev
+#   tier (REDIS must be production), and a production Redis cluster is
+#   $15/mo + a separate provisioning step. Phase-1 validation doesn't
+#   need it: no Celery beat, no rate limit hot path. The /api/health
+#   endpoint tolerates the missing Redis (returns redis: "skipped").
 # - Worker component is omitted; Phase-1 validation runs the EOD chain
 #   via `doctl apps console web` -> `python -m app.admin.backfill`,
 #   which exercises the same code path without needing Celery beat.
-# Re-add the `workers:` block when scheduled crawls are needed.
+# Re-add Redis (`databases:` entry referencing a pre-provisioned cluster
+# or a separate redis: block) when Phase 2 chat orchestrator needs rate
+# limiting or the worker comes back online.
 
 services:
   - name: web
@@ -31,7 +37,6 @@ services:
     envs:
       - { key: ENV, value: production }
       - { key: DATABASE_URL, value: "${db.DATABASE_URL}" }
-      - { key: REDIS_URL, value: "${redis.REDIS_URL}" }
       - { key: JWT_SECRET, type: SECRET }
       - { key: ENCRYPTION_KEY, type: SECRET }
       - { key: ANTHROPIC_API_KEY, type: SECRET }
@@ -75,9 +80,3 @@ databases:
     engine: PG
     version: "16"
     production: false
-  - name: redis
-    engine: REDIS
-    version: "7"
-    production: true
-    cluster_name: velvic-redis
-    size: db-s-1vcpu-1gb
