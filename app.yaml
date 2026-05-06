@@ -12,7 +12,6 @@ services:
       pip install --upgrade pip
       pip install -e .
     run_command: uvicorn app.main:app --host 0.0.0.0 --port 8080 --workers 2
-    pre_deploy_command: alembic upgrade head
     instance_size_slug: basic-xs
     instance_count: 1
     autoscaling:
@@ -62,6 +61,21 @@ workers:
       - { key: SENTRY_DSN, type: SECRET }
       - { key: LANGFUSE_PUBLIC_KEY, type: SECRET }
       - { key: LANGFUSE_SECRET_KEY, type: SECRET }
+
+jobs:
+  - name: migrate
+    kind: PRE_DEPLOY
+    source_dir: backend/
+    github:
+      repo: aparatstyledevelopment/velvic-monitor
+      branch: main
+    build_command: pip install -e .
+    run_command: alembic upgrade head
+    instance_size_slug: basic-xs
+    instance_count: 1
+    envs:
+      - { key: ENV, value: production }
+      - { key: DATABASE_URL, value: "${db.DATABASE_URL}" }
 
 static_sites:
   - name: frontend
