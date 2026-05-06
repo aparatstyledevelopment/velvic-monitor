@@ -1,6 +1,15 @@
 name: velvic-monitor
 region: fra1
 
+# Cheapest-possible footprint for Phase-1 validation:
+# - basic-xxs ($5/mo) on every app component (no autoscaling).
+# - production: false on managed Postgres + Redis to use the dev tiers
+#   (single node, no HA, no daily backups beyond 1).
+# - Worker component is omitted; Phase-1 validation runs the EOD chain
+#   via `doctl apps console web` -> `python -m app.admin.backfill`,
+#   which exercises the same code path without needing Celery beat.
+# Re-add the `workers:` block when scheduled crawls are needed.
+
 services:
   - name: web
     source_dir: backend/
@@ -11,15 +20,9 @@ services:
     build_command: |
       pip install --upgrade pip
       pip install -e .
-    run_command: uvicorn app.main:app --host 0.0.0.0 --port 8080 --workers 2
-    instance_size_slug: basic-xs
+    run_command: uvicorn app.main:app --host 0.0.0.0 --port 8080 --workers 1
+    instance_size_slug: basic-xxs
     instance_count: 1
-    autoscaling:
-      min_instance_count: 1
-      max_instance_count: 3
-      metrics:
-        cpu:
-          percent: 70
     http_port: 8080
     health_check:
       http_path: /api/health
@@ -40,28 +43,6 @@ services:
       - { key: LANGFUSE_PUBLIC_KEY, type: SECRET }
       - { key: LANGFUSE_SECRET_KEY, type: SECRET }
 
-workers:
-  - name: worker
-    source_dir: backend/
-    github:
-      repo: aparatstyledevelopment/velvic-monitor
-      branch: main
-    build_command: pip install -e .
-    run_command: celery -A app.pipeline.celery_app worker --beat --loglevel=info --concurrency=4
-    instance_size_slug: basic-xs
-    instance_count: 1
-    envs:
-      - { key: ENV, value: production }
-      - { key: DATABASE_URL, value: "${db.DATABASE_URL}" }
-      - { key: REDIS_URL, value: "${redis.REDIS_URL}" }
-      - { key: ANTHROPIC_API_KEY, type: SECRET }
-      - { key: OPENAI_API_KEY, type: SECRET }
-      - { key: GOOGLE_API_KEY, type: SECRET }
-      - { key: FRED_API_KEY, type: SECRET }
-      - { key: SENTRY_DSN, type: SECRET }
-      - { key: LANGFUSE_PUBLIC_KEY, type: SECRET }
-      - { key: LANGFUSE_SECRET_KEY, type: SECRET }
-
 jobs:
   - name: migrate
     kind: PRE_DEPLOY
@@ -71,7 +52,7 @@ jobs:
       branch: main
     build_command: pip install -e .
     run_command: alembic upgrade head
-    instance_size_slug: basic-xs
+    instance_size_slug: basic-xxs
     instance_count: 1
     envs:
       - { key: ENV, value: production }
@@ -93,10 +74,8 @@ databases:
   - name: db
     engine: PG
     version: "16"
-    production: true
-    size: db-s-1vcpu-1gb
+    production: false
   - name: redis
     engine: REDIS
     version: "7"
-    production: true
-    size: db-s-1vcpu-1gb
+    production: false
