@@ -79,4 +79,5 @@ databases:
     engine: REDIS
     version: "7"
     production: true
+    cluster_name: velvic-redis
     size: db-s-1vcpu-1gb
