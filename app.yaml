@@ -71,13 +71,20 @@ static_sites:
     github:
       repo: aparatstyledevelopment/velvic-monitor
       branch: main
-    build_command: npm ci && npm run build
+    build_command: npm ci --include=dev && npm run build
     output_dir: dist
     catchall_document: index.html
     # No VITE_API_URL: frontend/src/api/client.ts uses relative `/api/...`
     # URLs (same-origin), and DO routes /api -> web service automatically.
     # The previous `${APP_DOMAIN}` was not a valid bindable variable and
     # caused "Build failed for updating app configuration" on spec update.
+    envs:
+      # DO's Node buildpack sets NODE_ENV=production, which makes
+      # `npm ci` skip devDependencies. Our build needs typescript + vite
+      # (both devDeps) -- without this override `npm run build` fails
+      # with `tsc: not found`. The `--include=dev` flag on npm ci is a
+      # belt-and-suspenders backup for the same thing.
+      - { key: NPM_CONFIG_PRODUCTION, value: "false" }
 
 databases:
   - name: db
