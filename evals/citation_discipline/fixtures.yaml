@@ -2,6 +2,10 @@
 # pre-built FactPack and asserts that every numeric claim in the answer is
 # followed by a `[ec_xxx]` citation drawn from the FactPack ids.
 #
+# Convention: engine_call_id values must use ONLY hex chars [a-f0-9],
+# matching production (sha256-hexdigest based). Non-hex chars break the
+# assertion regex and cause false negatives.
+#
 # Used by promptfoo (see ../promptfoo.yaml). Each row turns into one test.
 
 - description: "VOLV-B move with peer + sector context"
@@ -51,7 +55,7 @@
         "benchmark": {"engine_call_id": "ec_aa33bb44", "daily_return_pct": -0.1}
       }
 
-- description: "INVE-B vs sector"
+- description: "INVE-B vs sector (gap pre-computed in attribution)"
   vars:
     question: "Investor lagged the index — by how much?"
     fact_pack: |
@@ -59,7 +63,8 @@
         "company": {"ticker": "INVE-B", "name": "Investor AB"},
         "as_of": "2026-04-25",
         "price_move": {"engine_call_id": "ec_a1c2e3d4", "daily_return_pct": -0.9},
-        "benchmark": {"engine_call_id": "ec_b5d6f7a8", "daily_return_pct": 0.3}
+        "benchmark": {"engine_call_id": "ec_b5d6f7a8", "daily_return_pct": 0.3},
+        "attribution": {"engine_call_id": "ec_d7e8f9a0", "relative_to_benchmark_pct": -1.2}
       }
 
 - description: "ATCO-A with insider activity"
@@ -73,7 +78,7 @@
         "peer_returns": {"engine_call_id": "ec_cc77dd66", "peers": [{"ticker": "SAND-B", "return_pct": -1.9}]}
       }
 
-- description: "HM-B retail soft data"
+- description: "HM-B retail soft data (gap pre-computed in attribution)"
   vars:
     question: "Was the H&M move sector-driven?"
     fact_pack: |
@@ -81,7 +86,8 @@
         "company": {"ticker": "HM-B", "name": "Hennes & Mauritz"},
         "as_of": "2026-04-15",
         "price_move": {"engine_call_id": "ec_ab12cd34", "daily_return_pct": -3.1},
-        "sector_proxy": {"engine_call_id": "ec_ef56ab78", "label": "Consumer Discretionary", "daily_return_pct": -2.9}
+        "sector_proxy": {"engine_call_id": "ec_ef56ab78", "label": "Consumer Discretionary", "daily_return_pct": -2.9},
+        "attribution": {"engine_call_id": "ec_b1a2c3d4", "relative_to_sector_pct": -0.2}
       }
 
 - description: "ERIC-B telco peer benchmark"
@@ -103,7 +109,7 @@
         "company": {"ticker": "SEB-A", "name": "Skandinaviska Enskilda Banken"},
         "as_of": "2026-04-20",
         "price_move": {"engine_call_id": "ec_22ee33ff", "daily_return_pct": -0.7},
-        "macro_snapshot": {"engine_call_id": "ec_44gg55hh", "series": [{"label": "Riksbank repo", "value": 2.0}]}
+        "macro_snapshot": {"engine_call_id": "ec_44ad55be", "series": [{"label": "Riksbank repo", "value": 2.0}]}
       }
 
 - description: "TELIA dividend day"
@@ -113,19 +119,20 @@
       {
         "company": {"ticker": "TELIA", "name": "Telia Company"},
         "as_of": "2026-04-12",
-        "price_move": {"engine_call_id": "ec_55kk66ll", "daily_return_pct": -1.4},
-        "news": {"engine_call_id": "ec_77mm88nn", "items": [{"headline": "Telia goes ex-dividend"}]}
+        "price_move": {"engine_call_id": "ec_55ab66cd", "daily_return_pct": -1.4},
+        "news": {"engine_call_id": "ec_77ab88cd", "items": [{"headline": "Telia goes ex-dividend"}]}
       }
 
-- description: "SHB-A vs sector flat"
+- description: "SHB-A vs sector flat (gap pre-computed in attribution)"
   vars:
     question: "Was Handelsbanken flat to sector?"
     fact_pack: |
       {
         "company": {"ticker": "SHB-A", "name": "Svenska Handelsbanken"},
         "as_of": "2026-04-08",
-        "price_move": {"engine_call_id": "ec_99pp00qq", "daily_return_pct": 0.2},
-        "sector_proxy": {"engine_call_id": "ec_aa11bb22", "label": "Financials", "daily_return_pct": 0.3}
+        "price_move": {"engine_call_id": "ec_99ab00cd", "daily_return_pct": 0.2},
+        "sector_proxy": {"engine_call_id": "ec_aa11bb22", "label": "Financials", "daily_return_pct": 0.3},
+        "attribution": {"engine_call_id": "ec_c5d6e7f8", "relative_to_sector_pct": -0.1}
       }
 
 - description: "BOL daily return"
