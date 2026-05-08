@@ -21,7 +21,7 @@ services:
     source_dir: backend/
     github:
       repo: aparatstyledevelopment/velvic-monitor
-      branch: claude/fix-do-deployment-ZAMFM
+      branch: main
       deploy_on_push: true
     # No build_command: Python buildpack auto-runs `pip install -r
     # requirements.txt`, which contains `.` and installs the package
@@ -56,7 +56,7 @@ jobs:
     source_dir: backend/
     github:
       repo: aparatstyledevelopment/velvic-monitor
-      branch: claude/fix-do-deployment-ZAMFM
+      branch: main
     # Same reason as web: buildpack auto-installs from requirements.txt.
     run_command: alembic upgrade head
     instance_size_slug: basic-xxs
@@ -70,7 +70,7 @@ static_sites:
     source_dir: frontend/
     github:
       repo: aparatstyledevelopment/velvic-monitor
-      branch: claude/fix-do-deployment-ZAMFM
+      branch: main
     build_command: npm ci --include=dev && npm run build
     output_dir: dist
     catchall_document: index.html
