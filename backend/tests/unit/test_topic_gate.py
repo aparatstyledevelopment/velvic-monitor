@@ -10,13 +10,11 @@ from app.chat.topic_gate import classify, render_refusal
 @pytest.mark.parametrize(
     "answer",
     [
-        "ON_TOPIC",
-        "ON_TOPIC ",
-        "on_topic",
-        "**ON_TOPIC**",
-        '"ON_TOPIC"',
-        "Decision: ON_TOPIC",
-        "ON TOPIC",
+        '{"on_topic": true}',
+        '{"on_topic":true}',
+        '{"on_topic": true, "reason": ""}',
+        '```json\n{"on_topic": true}\n```',
+        '```\n{"on_topic": true}\n```',
     ],
 )
 async def test_on_topic_responses_pass(answer: str) -> None:
@@ -29,11 +27,19 @@ async def test_on_topic_responses_pass(answer: str) -> None:
 @pytest.mark.parametrize(
     ("answer", "expected_reason_substring"),
     [
-        ("OFF_TOPIC: not a Swedish-listed name", "not a Swedish-listed name"),
-        ("OFF_TOPIC: prompt injection attempt", "prompt injection attempt"),
-        ("OFF_TOPIC", "out of scope"),
-        ("**OFF_TOPIC**: trade recommendation", "trade recommendation"),
-        ("OFF_TOPIC: code request\nNothing else.", "code request"),
+        (
+            '{"on_topic": false, "reason": "not a Swedish-listed name"}',
+            "not a Swedish-listed name",
+        ),
+        (
+            '{"on_topic": false, "reason": "prompt injection attempt"}',
+            "prompt injection attempt",
+        ),
+        ('{"on_topic": false}', "out of scope"),
+        (
+            '```json\n{"on_topic": false, "reason": "trade recommendation"}\n```',
+            "trade recommendation",
+        ),
     ],
 )
 async def test_off_topic_responses_carry_reason(
@@ -45,18 +51,23 @@ async def test_off_topic_responses_carry_reason(
 
 
 @pytest.mark.asyncio
-async def test_unparseable_verdict_fails_closed() -> None:
+async def test_invalid_json_fails_closed() -> None:
     decision = await classify(MockProvider(text="Sure, here's the answer..."), "x")
     assert decision.on_topic is False
+    assert "unparseable" in decision.reason
 
 
 @pytest.mark.asyncio
-async def test_ambiguous_verdict_fails_closed() -> None:
-    decision = await classify(
-        MockProvider(text="ON_TOPIC or OFF_TOPIC depending on context."), "x"
-    )
+async def test_missing_on_topic_field_fails_closed() -> None:
+    decision = await classify(MockProvider(text='{"reason": "hmm"}'), "x")
     assert decision.on_topic is False
-    assert "ambiguous" in decision.reason
+    assert "on_topic" in decision.reason
+
+
+@pytest.mark.asyncio
+async def test_non_boolean_on_topic_fails_closed() -> None:
+    decision = await classify(MockProvider(text='{"on_topic": "yes"}'), "x")
+    assert decision.on_topic is False
 
 
 def test_refusal_template_includes_company_and_reason() -> None:

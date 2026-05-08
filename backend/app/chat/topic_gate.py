@@ -4,19 +4,20 @@ Runs a single small-model completion on the user's latest message and
 either returns ON_TOPIC (orchestrator proceeds) or OFF_TOPIC with a short
 reason (orchestrator emits the canonical refusal).
 
+Output contract is JSON:
+  {"on_topic": true}
+  {"on_topic": false, "reason": "<short reason>"}
+
 The classifier is provider-agnostic: takes any LLMProvider. In production
 the orchestrator wires this to the cheapest model available on the org's
 preferred provider (e.g. Anthropic Haiku).
-
-Parser tolerance: classifiers occasionally wrap the verdict in markdown
-(`**ON_TOPIC**`), quotes, or a leading sentence. We search for the token
-anywhere in the response and fail-closed on ambiguity.
 """
 
 from __future__ import annotations
 
-import re
+import json
 from dataclasses import dataclass
+from typing import Any
 
 from app.chat.prompts import REFUSAL_TEMPLATE, TOPIC_GATE_SYSTEM
 from app.chat.providers.base import LLMProvider, Message
@@ -29,13 +30,7 @@ class TopicDecision:
     reason: str  # empty when on-topic
 
 
-CLASSIFIER_MAX_TOKENS = 64
-
-_ON_TOPIC_RE = re.compile(r"\bON[_ ]TOPIC\b", re.IGNORECASE)
-_OFF_TOPIC_RE = re.compile(r"\bOFF[_ ]TOPIC\b", re.IGNORECASE)
-_OFF_TOPIC_REASON_RE = re.compile(
-    r"\bOFF[_ ]TOPIC\s*:?\s*(.*)", re.IGNORECASE | re.DOTALL
-)
+CLASSIFIER_MAX_TOKENS = 96
 
 
 async def classify(
@@ -56,29 +51,48 @@ async def classify(
 
 
 def _parse_decision(raw: str) -> TopicDecision:
-    text = raw.strip()
-    has_on = bool(_ON_TOPIC_RE.search(text))
-    has_off = bool(_OFF_TOPIC_RE.search(text))
+    text = _strip_code_fence(raw.strip())
+    try:
+        payload: Any = json.loads(text)
+    except json.JSONDecodeError:
+        logger.warning("topic_gate_unparseable", raw=raw[:200])
+        return TopicDecision(on_topic=False, reason="classifier output unparseable.")
 
-    if has_off and not has_on:
-        m = _OFF_TOPIC_REASON_RE.search(text)
-        reason_raw = m.group(1).strip() if m else ""
-        # First non-empty line (strip any trailing markdown like `**`).
-        first = next(
-            (line.strip() for line in reason_raw.splitlines() if line.strip()), ""
+    if not isinstance(payload, dict):
+        logger.warning("topic_gate_unparseable", raw=raw[:200])
+        return TopicDecision(on_topic=False, reason="classifier output not an object.")
+
+    on_topic = payload.get("on_topic")
+    if not isinstance(on_topic, bool):
+        logger.warning("topic_gate_unparseable", raw=raw[:200])
+        return TopicDecision(
+            on_topic=False, reason="classifier missing on_topic boolean."
         )
-        reason = re.sub(r"[`*_\"]+$", "", first).strip() or "out of scope."
-        return TopicDecision(on_topic=False, reason=reason)
 
-    if has_on and not has_off:
+    if on_topic:
         return TopicDecision(on_topic=True, reason="")
 
-    if has_on and has_off:
-        logger.warning("topic_gate_ambiguous", raw=text[:200])
-        return TopicDecision(on_topic=False, reason="classifier output ambiguous.")
+    reason_raw = payload.get("reason")
+    reason = (
+        reason_raw.strip()
+        if isinstance(reason_raw, str) and reason_raw.strip()
+        else "out of scope."
+    )
+    return TopicDecision(on_topic=False, reason=reason)
 
-    logger.warning("topic_gate_unparseable", raw=text[:200])
-    return TopicDecision(on_topic=False, reason="classifier output unparseable.")
+
+def _strip_code_fence(text: str) -> str:
+    """Tolerate ```json ... ``` wrappers some models emit despite the prompt."""
+    if not text.startswith("```"):
+        return text
+    stripped = text.strip("`")
+    nl = stripped.find("\n")
+    if nl == -1:
+        return stripped
+    head = stripped[:nl].strip().lower()
+    if head in ("json", ""):
+        return stripped[nl + 1 :].strip()
+    return stripped
 
 
 def render_refusal(*, company_name: str, reason: str) -> str:

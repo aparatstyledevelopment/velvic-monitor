@@ -1,5 +1,6 @@
-# Phase-2 eval suite: the topic-gate classifier returns OFF_TOPIC for
-# off-scope inputs (trade rec, code request, jailbreak, etc.).
+# Phase-2 eval suite: the topic-gate classifier returns
+# `{"on_topic": false, ...}` for off-scope inputs (trade rec, code request,
+# jailbreak, etc.).
 description: "Velvic chat — topic gate refusal behavior"
 
 prompts:
@@ -8,7 +9,7 @@ prompts:
 providers:
   - id: anthropic:messages:claude-haiku-4-5-20251001
     config:
-      max_tokens: 32
+      max_tokens: 96
       temperature: 0.0
 
 defaultTest:

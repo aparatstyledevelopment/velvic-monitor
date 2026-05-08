@@ -206,7 +206,7 @@ def _patch_session_lookups(
 def _orchestrator_with_provider(provider: LLMProvider) -> ChatOrchestrator:
     return ChatOrchestrator(
         provider_factory=lambda _org: provider,
-        gate_provider_factory=lambda _org: MockProvider(text="ON_TOPIC"),
+        gate_provider_factory=lambda _org: MockProvider(text='{"on_topic": true}'),
         tool_modules=("_test",),
     )
 
@@ -247,7 +247,7 @@ async def test_off_topic_emits_refusal_without_calling_main_provider(
     orch = ChatOrchestrator(
         provider_factory=lambda _o: _SpyProvider(),  # type: ignore[arg-type, return-value]
         gate_provider_factory=lambda _o: MockProvider(
-            text="OFF_TOPIC: not a Swedish-listed name"
+            text='{"on_topic": false, "reason": "not a Swedish-listed name"}'
         ),
         tool_modules=("_test",),
     )
