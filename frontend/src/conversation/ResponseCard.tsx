@@ -41,20 +41,26 @@ export function ResponseCard({ data }: ResponseCardProps) {
   }
 
   const header = isRefusal ? (
-    <Pill className="text-text-tertiary">Off-topic</Pill>
+    <span className="t-meta">Off-topic</span>
   ) : data.streaming ? (
     <span className="t-meta flex items-center gap-sm">
       <TypingIndicator />
-      {data.runningTool !== null && <span>engine: {data.runningTool}</span>}
+      {data.runningTool !== null && (
+        <Pill className="t-mono">engine: {data.runningTool}</Pill>
+      )}
     </span>
   ) : null;
+
+  const bodyClasses = isRefusal
+    ? "t-body italic text-text-secondary whitespace-pre-wrap"
+    : "t-body whitespace-pre-wrap";
 
   return (
     <Card header={header ?? undefined}>
       {data.text.length === 0 && data.streaming ? (
         <p className="t-small text-text-tertiary italic">Thinking&hellip;</p>
       ) : (
-        <p className="t-body whitespace-pre-wrap">
+        <p className={bodyClasses}>
           {renderWithCitations({
             text: data.text,
             spans: data.citation_spans,
@@ -62,18 +68,28 @@ export function ResponseCard({ data }: ResponseCardProps) {
           })}
         </p>
       )}
-      {data.warning !== null && (
-        <p
-          className="t-small mt-sm"
-          style={{ color: "var(--signal-negative)" }}
-          role="status"
-        >
-          {data.warning === "uncited_numeric"
-            ? "Some numbers in this answer could not be cited; the result is shown best-effort."
-            : data.warning}
-        </p>
-      )}
+      {data.warning !== null && <WarningRow warning={data.warning} />}
     </Card>
+  );
+}
+
+function WarningRow({ warning }: { warning: string }) {
+  const message =
+    warning === "uncited_numeric"
+      ? "Some numbers in this answer could not be cited; the result is shown best-effort."
+      : warning;
+  return (
+    <div
+      role="status"
+      className="mt-md flex items-start gap-sm pt-sm border-t border-border"
+    >
+      <span
+        aria-hidden="true"
+        className="mt-[6px] h-2 w-2 rounded-pill shrink-0"
+        style={{ background: "var(--signal-negative)" }}
+      />
+      <p className="t-small text-text-secondary flex-1">{message}</p>
+    </div>
   );
 }
 
