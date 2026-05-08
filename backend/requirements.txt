@@ -1,0 +1,10 @@
+# DO App Platform Python buildpack (Heroku v322) requires one of
+# requirements.txt / Pipfile.lock / poetry.lock / uv.lock to install
+# anything; pyproject.toml alone is not enough. Plain `.` (non-editable)
+# is preferred over `-e .` because PEP 660 editable installs need
+# setuptools >= 64 and the buildpack's bundled setuptools may be older
+# (DO's build-log analyzer flagged the editable install as the failure).
+# Deps still live in pyproject.toml -- this file just bootstraps the
+# install so the buildpack runs `pip install -r requirements.txt`,
+# which resolves to `pip install .` and pulls everything from there.
+.

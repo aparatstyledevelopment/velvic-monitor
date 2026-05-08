@@ -23,9 +23,11 @@ services:
       repo: aparatstyledevelopment/velvic-monitor
       branch: main
       deploy_on_push: true
-    build_command: |
-      pip install --upgrade pip
-      pip install -e .
+    # No build_command: Python buildpack auto-runs `pip install -r
+    # requirements.txt`, which contains `.` and installs the package
+    # plus deps from pyproject.toml. The previous custom build_command
+    # used `pip install -e .` which fails on the buildpack's setuptools
+    # (PEP 660 editable installs need setuptools >= 64).
     run_command: uvicorn app.main:app --host 0.0.0.0 --port 8080 --workers 1
     instance_size_slug: basic-xxs
     instance_count: 1
@@ -55,7 +57,7 @@ jobs:
     github:
       repo: aparatstyledevelopment/velvic-monitor
       branch: main
-    build_command: pip install -e .
+    # Same reason as web: buildpack auto-installs from requirements.txt.
     run_command: alembic upgrade head
     instance_size_slug: basic-xxs
     instance_count: 1
@@ -69,11 +71,20 @@ static_sites:
     github:
       repo: aparatstyledevelopment/velvic-monitor
       branch: main
-    build_command: npm ci && npm run build
+    build_command: npm ci --include=dev && npm run build
     output_dir: dist
     catchall_document: index.html
+    # No VITE_API_URL: frontend/src/api/client.ts uses relative `/api/...`
+    # URLs (same-origin), and DO routes /api -> web service automatically.
+    # The previous `${APP_DOMAIN}` was not a valid bindable variable and
+    # caused "Build failed for updating app configuration" on spec update.
     envs:
-      - { key: VITE_API_URL, value: "https://${APP_DOMAIN}" }
+      # DO's Node buildpack sets NODE_ENV=production, which makes
+      # `npm ci` skip devDependencies. Our build needs typescript + vite
+      # (both devDeps) -- without this override `npm run build` fails
+      # with `tsc: not found`. The `--include=dev` flag on npm ci is a
+      # belt-and-suspenders backup for the same thing.
+      - { key: NPM_CONFIG_PRODUCTION, value: "false" }
 
 databases:
   - name: db

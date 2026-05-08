@@ -55,8 +55,18 @@ def do_run_migrations(connection: Connection) -> None:
         context.run_migrations()
 
 
+def _sanitized(url: str) -> str:
+    """URL with credentials redacted, for one-line debug output."""
+    from urllib.parse import urlparse, urlunparse
+
+    parsed = urlparse(url)
+    netloc = f"***:***@{parsed.hostname or '?'}:{parsed.port or '?'}"
+    return urlunparse(parsed._replace(netloc=netloc))
+
+
 async def run_migrations_online() -> None:
     settings = get_settings()
+    print(f"[alembic] connecting to {_sanitized(settings.database_url)}", flush=True)
     cfg = config.get_section(config.config_ini_section) or {}
     cfg["sqlalchemy.url"] = settings.database_url
     connectable = async_engine_from_config(

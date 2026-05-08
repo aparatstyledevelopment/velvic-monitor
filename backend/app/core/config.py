@@ -11,7 +11,21 @@ def _normalize_async_db_url(raw: str) -> str:
     DO injects `postgresql://user:pw@host:port/db?sslmode=require`. SQLAlchemy
     with asyncpg needs `postgresql+asyncpg://...?ssl=require` (asyncpg uses the
     `ssl` query param, not psycopg's `sslmode`).
+
+    Also handles the legacy `postgres://` scheme (SQLAlchemy 2.x rejects it
+    with "Could not parse SQLAlchemy URL"). And fails fast with a useful
+    message if DO's bindable substitution gave us an empty string or the
+    literal `${...}` placeholder (binding race during db provisioning).
     """
+    if not raw or raw.startswith("${"):
+        raise ValueError(
+            f"DATABASE_URL is empty or unsubstituted (got {raw!r}). "
+            "DO's `${db.DATABASE_URL}` binding may not have resolved -- "
+            "check that the `db` database component is provisioned and "
+            "Active in the app spec, then retry the deploy."
+        )
+    if raw.startswith("postgres://"):
+        raw = "postgresql://" + raw[len("postgres://") :]
     if raw.startswith("postgresql://") and "+asyncpg" not in raw:
         raw = "postgresql+asyncpg://" + raw[len("postgresql://") :]
     if "sslmode=" in raw:
