@@ -1,0 +1,6 @@
+# Heroku Python buildpack v322 (used by DO App Platform) requires one of
+# requirements.txt / Pipfile.lock / poetry.lock / uv.lock to be present;
+# pyproject.toml alone fails detection. `-e .` installs the local package
+# in editable mode and pulls deps from pyproject.toml, keeping a single
+# source of truth there.
+-e .
