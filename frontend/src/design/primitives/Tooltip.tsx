@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 const contentClasses = [
   "rounded-sm bg-surface-inverted text-surface px-sm py-xs",
   "text-[12px] leading-tight",
-  "shadow-md shadow-black/15",
+  "shadow-sm",
   "select-none",
 ].join(" ");
 

@@ -13,7 +13,7 @@ const contentClasses = [
   "w-[min(480px,calc(100vw-2rem))]",
   "rounded-lg border border-border bg-surface",
   "p-xl",
-  "shadow-xl shadow-black/10",
+  "shadow-md",
   "focus:outline-none",
 ].join(" ");
 

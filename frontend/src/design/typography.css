@@ -1,41 +1,57 @@
 /* Typography tokens for headings + body text. Components use these classes
-   instead of raw font-size/line-height utilities. */
+   instead of raw font-size/line-height utilities.
+
+   Scale tuned for an editorial-minimalist UI: tight tracking on display,
+   confident body weight, pronounced letter-spacing on small uppercase
+   labels (the "STOCK & TRADING" sectioning in the design blueprint). */
 
 .t-display {
-  font-size: 30px;
+  font-size: 28px;
   font-weight: 600;
-  line-height: 1.2;
-  letter-spacing: -0.01em;
+  line-height: 1.18;
+  letter-spacing: -0.018em;
 }
 
 .t-title {
   font-size: 22px;
   font-weight: 600;
   line-height: 1.25;
+  letter-spacing: -0.01em;
 }
 
 .t-section {
   font-size: 16px;
   font-weight: 600;
   line-height: 1.35;
+  letter-spacing: -0.005em;
+}
+
+.t-label {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: -0.003em;
 }
 
 .t-body {
-  font-size: 15px;
-  line-height: 1.5;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.55;
 }
 
 .t-small {
   font-size: 13px;
-  line-height: 1.45;
+  font-weight: 400;
+  line-height: 1.5;
   color: var(--text-secondary);
 }
 
 .t-meta {
-  font-size: 12px;
+  font-size: 11px;
+  font-weight: 500;
   line-height: 1.4;
   color: var(--text-tertiary);
-  letter-spacing: 0.02em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
@@ -43,4 +59,10 @@
   font-family: var(--font-mono);
   font-size: 13px;
   line-height: 1.5;
+}
+
+.t-numeric {
+  font-feature-settings: "tnum" 1, "cv11" 1;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
 }

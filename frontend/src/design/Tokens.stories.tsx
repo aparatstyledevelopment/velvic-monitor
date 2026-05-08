@@ -8,12 +8,17 @@ export default {
 
 const SEMANTIC_COLORS: { name: string; cssVar: string; description: string }[] = [
   { name: "surface-default", cssVar: "--surface-default", description: "Page background, cards" },
-  { name: "surface-inverted", cssVar: "--surface-inverted", description: "Inverted surfaces" },
+  { name: "surface-muted", cssVar: "--surface-muted", description: "Recessive surfaces (user bubbles, panels)" },
+  { name: "surface-sunken", cssVar: "--surface-sunken", description: "Sunken wells (code blocks, sidebars)" },
+  { name: "surface-inverted", cssVar: "--surface-inverted", description: "Inverted surfaces, primary CTAs" },
   { name: "text-primary", cssVar: "--text-primary", description: "Body copy, headings" },
   { name: "text-secondary", cssVar: "--text-secondary", description: "Muted body, labels" },
-  { name: "text-tertiary", cssVar: "--text-tertiary", description: "Placeholders, meta" },
+  { name: "text-tertiary", cssVar: "--text-tertiary", description: "Meta, timestamps" },
+  { name: "text-quaternary", cssVar: "--text-quaternary", description: "Placeholders, disabled" },
   { name: "border-default", cssVar: "--border-default", description: "Hairlines, dividers" },
+  { name: "border-strong", cssVar: "--border-strong", description: "Emphasised hairlines" },
   { name: "track-default", cssVar: "--track-default", description: "Hover wash, sliders" },
+  { name: "track-emphasized", cssVar: "--track-emphasized", description: "Pressed/active wash" },
   { name: "signal-positive", cssVar: "--signal-positive", description: "Positive moves" },
   { name: "signal-negative", cssVar: "--signal-negative", description: "Negative moves" },
 ];
@@ -60,7 +65,19 @@ export const Colors: Story = () => (
 
 // ----- Spacing --------------------------------------------------------------
 
-const SPACING = ["xxs", "xs", "sm", "md", "lg", "xl", "2xl", "3xl"] as const;
+const SPACING = [
+  "xxs",
+  "xs",
+  "2xs",
+  "sm",
+  "md",
+  "lg",
+  "xl",
+  "2xl",
+  "3xl",
+  "4xl",
+  "5xl",
+] as const;
 
 export const Spacing: Story = () => (
   <Section title="Spacing scale">
@@ -125,6 +142,44 @@ export const Radii: Story = () => (
   </Section>
 );
 
+// ----- Shadows --------------------------------------------------------------
+
+const SHADOWS = ["xs", "sm", "md", "lg"] as const;
+
+export const Shadows: Story = () => (
+  <Section title="Shadow scale">
+    <p className="t-small" style={{ color: "var(--text-secondary)", marginBottom: 16 }}>
+      Editorial-low shadows. Reserve <code>md</code>+ for floating surfaces (dialogs).
+      Resting cards rely on hairlines, not elevation.
+    </p>
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+        gap: 32,
+        background: "var(--surface-muted)",
+        padding: 32,
+        borderRadius: "var(--radius-lg)",
+      }}
+    >
+      {SHADOWS.map((name) => (
+        <div key={name} style={{ textAlign: "center" }}>
+          <div
+            style={{
+              height: 80,
+              background: "var(--surface-default)",
+              borderRadius: "var(--radius-md)",
+              boxShadow: `var(--shadow-${name})`,
+              marginBottom: 12,
+            }}
+          />
+          <div className="t-mono" style={{ fontSize: 12 }}>--shadow-{name}</div>
+        </div>
+      ))}
+    </div>
+  </Section>
+);
+
 // ----- Typography -----------------------------------------------------------
 
 export const Typography: Story = () => (
@@ -137,18 +192,24 @@ export const Typography: Story = () => (
         Drivers
       </Sample>
       <Sample className="t-section" label=".t-section">
-        Today's price action
+        Today&rsquo;s price action
+      </Sample>
+      <Sample className="t-label" label=".t-label">
+        Top 25 holders
       </Sample>
       <Sample className="t-body" label=".t-body">
         VOLV-B closed at 247.20 SEK, down 2.1% on the session, against an OMX Stockholm
-        PI return of +0.4%. The relative underperformance lines up with the morning's
+        PI return of +0.4%. The relative underperformance lines up with the morning&rsquo;s
         downward revision to FY26 truck guidance.
       </Sample>
       <Sample className="t-small" label=".t-small">
         Last updated 2026-04-29 17:30 CET.
       </Sample>
       <Sample className="t-meta" label=".t-meta">
-        regulatory · MAR-flagged
+        Stock &amp; trading
+      </Sample>
+      <Sample className="t-numeric" label=".t-numeric">
+        247.20 SEK · &minus;2.1%
       </Sample>
       <Sample className="t-mono" label=".t-mono">
         engine_call_id: ec_8f3a3b1c

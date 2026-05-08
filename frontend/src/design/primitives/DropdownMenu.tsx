@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 const contentClasses = [
   "min-w-[180px] z-50",
   "rounded-md border border-border bg-surface",
-  "shadow-lg shadow-black/5",
+  "shadow-sm",
   "p-xs",
   "data-[state=open]:animate-in data-[state=closed]:animate-out",
 ].join(" ");

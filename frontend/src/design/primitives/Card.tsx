@@ -9,7 +9,7 @@ interface CardProps {
 
 export function Card({ header, footer, children, className = "" }: CardProps) {
   const classes = [
-    "flex flex-col rounded-md border border-border bg-surface",
+    "flex flex-col rounded-lg border border-border bg-surface",
     "overflow-hidden",
     className,
   ].join(" ");

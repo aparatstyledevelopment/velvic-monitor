@@ -18,11 +18,20 @@ html {
   background-color: var(--surface-default);
   color: var(--text-primary);
   font-family: var(--font-sans);
-  font-size: 15px;
-  line-height: 1.45;
+  font-size: 14px;
+  line-height: 1.5;
   font-variant-numeric: tabular-nums;
+  /* Inter Variable's contextual alternates + tabular numerals look slightly
+     more editorial; "cv11" enables the single-storey 'a' alternate. */
+  font-feature-settings: "cv11" 1, "ss01" 1, "tnum" 1;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+}
+
+body {
+  background-color: var(--surface-default);
+  color: var(--text-primary);
 }
 
 button,
@@ -48,6 +57,11 @@ img,
 svg {
   display: block;
   max-width: 100%;
+}
+
+::selection {
+  background-color: var(--track-emphasized);
+  color: var(--text-primary);
 }
 
 @media (prefers-reduced-motion: reduce) {
