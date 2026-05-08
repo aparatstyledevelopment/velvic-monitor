@@ -40,9 +40,5 @@ test-results/
 *.pem
 *.key
 
-# Generated artifacts
-shared/openapi/spec.json
-shared/openapi/types.ts
-
 # Logs
 *.log
