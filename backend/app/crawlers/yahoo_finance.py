@@ -19,10 +19,10 @@ from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from decimal import Decimal
-from typing import Any
+from typing import Any, cast
 
 import yfinance as yf
-from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.crawlers.base import BaseCrawler, DateRange, PolitenessConfig
@@ -99,53 +99,50 @@ class YahooFinanceCrawler(BaseCrawler[ParsedBar]):
         return out
 
     async def upsert_raw(self, session: AsyncSession, rows: Sequence[ParsedBar]) -> int:
+        # Insert-or-skip via the partial unique index `yahoo_price_bar_unique
+        # ON (ticker, trading_date) WHERE superseded_by IS NULL`. The previous
+        # ORM-level "version on diff" path was unsound for two reasons:
+        #   1. NUMERIC(20,6) rounds inputs on storage, so an exact Decimal
+        #      compare on the round-tripped value (_bar_equal) returned False
+        #      for unchanged rows -- spuriously triggering versioning.
+        #   2. The versioning path inserted the new row with superseded_by
+        #      still NULL before marking the old row superseded, which caused
+        #      both rows to occupy the partial index simultaneously and trip
+        #      the unique constraint.
+        # Phase 1 doesn't need retro-correction tracking; ON CONFLICT DO
+        # NOTHING is the correct idempotent primitive here. When/if Yahoo
+        # back-corrections matter (Phase 2+), reintroduce versioning by
+        # marking the existing row superseded BEFORE inserting the new one.
         if not rows:
             return 0
-        n = 0
-        for r in rows:
-            existing = await session.scalar(
-                select(YahooPriceBar).where(
-                    YahooPriceBar.ticker == r.ticker,
-                    YahooPriceBar.trading_date == r.trading_date,
-                    YahooPriceBar.superseded_by.is_(None),
-                )
+        values = [
+            {
+                "ticker": r.ticker,
+                "trading_date": r.trading_date,
+                "open": r.open,
+                "high": r.high,
+                "low": r.low,
+                "close": r.close,
+                "adj_close": r.adj_close,
+                "volume": r.volume,
+                "raw_payload": r.raw,
+            }
+            for r in rows
+        ]
+        stmt = (
+            pg_insert(YahooPriceBar)
+            .values(values)
+            .on_conflict_do_nothing(
+                index_elements=["ticker", "trading_date"],
+                index_where=YahooPriceBar.superseded_by.is_(None),
             )
-            if existing is not None:
-                if _bar_equal(existing, r):
-                    continue
-                new_row = YahooPriceBar(
-                    ticker=r.ticker,
-                    trading_date=r.trading_date,
-                    open=r.open,
-                    high=r.high,
-                    low=r.low,
-                    close=r.close,
-                    adj_close=r.adj_close,
-                    volume=r.volume,
-                    raw_payload=r.raw,
-                )
-                session.add(new_row)
-                await session.flush()
-                existing.superseded_by = new_row.id
-                await session.flush()
-                n += 1
-                continue
-            session.add(
-                YahooPriceBar(
-                    ticker=r.ticker,
-                    trading_date=r.trading_date,
-                    open=r.open,
-                    high=r.high,
-                    low=r.low,
-                    close=r.close,
-                    adj_close=r.adj_close,
-                    volume=r.volume,
-                    raw_payload=r.raw,
-                )
-            )
-            n += 1
+        )
+        result = await session.execute(stmt)
         await session.flush()
-        return n
+        # Result.rowcount is concrete on the async cursor result but the
+        # typeshed stub only exposes the abstract Result[Any]; cast to keep
+        # mypy --strict happy without weakening the runtime contract.
+        return cast(int, getattr(result, "rowcount", 0)) or 0
 
 
 def _yf_history_records(symbol: str, start: date, end: date) -> list[dict[str, Any]]:
@@ -227,17 +224,6 @@ def _jsonable(v: Any) -> Any:
     if hasattr(v, "isoformat"):
         return v.isoformat()
     return str(v)
-
-
-def _bar_equal(existing: YahooPriceBar, new: ParsedBar) -> bool:
-    return (
-        existing.open == new.open
-        and existing.high == new.high
-        and existing.low == new.low
-        and existing.close == new.close
-        and existing.adj_close == new.adj_close
-        and existing.volume == new.volume
-    )
 
 
 @register("yahoo_finance")
