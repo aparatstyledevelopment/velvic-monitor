@@ -1,4 +1,4 @@
-.PHONY: help install dev down test test-backend test-frontend e2e lint typecheck migrate seed backfill evals build
+.PHONY: help install dev down test test-backend test-frontend e2e lint typecheck migrate seed backfill evals build openapi
 
 help:
 	@echo "Velvic Monitor — make targets"
@@ -16,6 +16,7 @@ help:
 	@echo "  backfill       run a full crawl + ingest + briefing for the demo set"
 	@echo "  evals          promptfoo eval"
 	@echo "  build          production build of frontend"
+	@echo "  openapi        dump OpenAPI spec from backend, regenerate TS types"
 
 install:
 	cd backend && pip install -e ".[dev]"
@@ -62,3 +63,7 @@ evals:
 
 build:
 	cd frontend && npm run build
+
+openapi:
+	cd backend && python scripts/dump_openapi.py ../shared/openapi/spec.json
+	cd frontend && npm run openapi:gen

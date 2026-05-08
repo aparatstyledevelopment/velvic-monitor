@@ -40,3 +40,11 @@ def test_chat_routes_registered() -> None:
     assert "/api/chat/threads" in paths
     assert "/api/chat/threads/{thread_id}" in paths
     assert "/api/chat/threads/{thread_id}/turns" in paths
+
+
+def test_phase3_routes_registered() -> None:
+    client = TestClient(create_app())
+    spec = client.get("/api/openapi.json").json()
+    paths = spec.get("paths", {})
+    assert "/api/me/companies" in paths
+    assert "/api/engine_calls/{engine_call_id}" in paths
