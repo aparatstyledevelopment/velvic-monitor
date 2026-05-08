@@ -92,9 +92,10 @@ class _FakeUser:
 
 
 class _FakeCompany:
-    def __init__(self, id: int, name: str) -> None:
+    def __init__(self, id: int, name: str, ticker: str = "VOLV-B") -> None:
         self.id = id
         self.name = name
+        self.ticker = ticker
 
 
 class _FakeAccess:

@@ -26,7 +26,7 @@ from __future__ import annotations
 import json
 from collections.abc import AsyncGenerator, Callable
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from uuid import UUID
 
@@ -37,7 +37,7 @@ from app.auth.models import AppUser, Company, Org, OrgCompanyAccess
 from app.chat import topic_gate as topic_gate_mod
 from app.chat.citations import find_uncited_numerics, parse_citations
 from app.chat.models import ChatEngineCall, ChatThread, ChatTurn
-from app.chat.prompts import CHAT_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT_STRICT
+from app.chat.prompts import render_chat_system_prompt
 from app.chat.providers.base import (
     CompletionEvent,
     LLMProvider,
@@ -147,6 +147,20 @@ async def _drive_turn(
     provider = orch._provider_factory(org)
     tools = tool_specs_for_chat(list(orch._tool_modules))
     history = await _build_history(session, thread_id, exclude_turn_id=user_turn.id)
+    today = date.today()
+    system_prompt = render_chat_system_prompt(
+        company_name=company.name,
+        ticker=company.ticker,
+        company_id=company.id,
+        today=today,
+    )
+    strict_system_prompt = render_chat_system_prompt(
+        company_name=company.name,
+        ticker=company.ticker,
+        company_id=company.id,
+        today=today,
+        strict=True,
+    )
     state = _TurnState(
         messages=history + [Message(role="user", content=user_message)],
         engine_call_ids=[],
@@ -165,7 +179,7 @@ async def _drive_turn(
     while True:
         active_tools = tools if state.tool_call_count < MAX_TOOL_CALLS else None
         result = await provider.complete(
-            system=CHAT_SYSTEM_PROMPT,
+            system=system_prompt,
             messages=state.messages,
             tools=active_tools,
             max_tokens=2048,
@@ -212,7 +226,7 @@ async def _drive_turn(
             count=len(uncited),
         )
         retry = await provider.complete(
-            system=CHAT_SYSTEM_PROMPT_STRICT,
+            system=strict_system_prompt,
             messages=state.messages,
             tools=None,
             max_tokens=1024,

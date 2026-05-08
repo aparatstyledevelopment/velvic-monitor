@@ -21,6 +21,18 @@ CITATION_RE = re.compile(r"[ \t]?\[(?P<id>ec_[a-f0-9]{6,})\]")
 # negative lookahead for alphanumerics keeps `2.1%` matched whole while
 # still rejecting `2.5km`.
 NUMBER_RE = re.compile(r"\b\d+(?:[.,]\d+)?%?(?![A-Za-z0-9])")
+# Stricter pattern used by the uncited-numeric check: only flag tokens that
+# look like financial values (decimal, thousands-separated, or with %).
+# This avoids false positives on list bullets like `1.` `2.`, single-digit
+# durations ("5 days"), and ISO dates ("2026-04-30").
+_FINANCIAL_NUMBER_RE = re.compile(
+    r"(?<!\d)(?:"
+    r"\d+\.\d+%?"
+    r"|\d{1,3}(?:,\d{3})+(?:\.\d+)?%?"
+    r"|\d+%"
+    r")(?![A-Za-z0-9])"
+)
+_ISO_DATE_RE = re.compile(r"\b\d{4}-\d{2}-\d{2}\b")
 
 
 @dataclass(frozen=True)
@@ -91,11 +103,19 @@ def _find_cited_fragment(text: str, marker_start: int) -> tuple[int, int] | None
 def find_uncited_numerics(
     text: str, spans: list[CitationSpan]
 ) -> list[tuple[int, int, str]]:
-    """Return number-shaped substrings in `text` not covered by any span."""
+    """Return financial-number substrings in `text` not covered by any span.
+
+    Uses the stricter `_FINANCIAL_NUMBER_RE` so list bullets, single-digit
+    durations, and ISO dates aren't flagged as uncited. ISO dates are also
+    skipped explicitly even if they happened to match.
+    """
     covered: list[tuple[int, int]] = [(s.start_char, s.end_char) for s in spans]
+    iso_dates = [(m.start(), m.end()) for m in _ISO_DATE_RE.finditer(text)]
     out: list[tuple[int, int, str]] = []
-    for m in NUMBER_RE.finditer(text):
+    for m in _FINANCIAL_NUMBER_RE.finditer(text):
         if any(start <= m.start() and m.end() <= end for start, end in covered):
+            continue
+        if any(start <= m.start() and m.end() <= end for start, end in iso_dates):
             continue
         out.append((m.start(), m.end(), m.group(0)))
     return out
