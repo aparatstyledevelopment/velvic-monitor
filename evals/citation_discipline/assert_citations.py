@@ -1,15 +1,10 @@
-"""Promptfoo Python assertion: every financial-shape numeric in the answer
-carries a `[ec_xxx]` citation drawn from the FactPack.
+"""Promptfoo Python assertion: every distinct financial value in the answer
+is cited at least once with a `[ec_xxx]` from the FactPack.
 
-Aligned with the production parser in `backend/app/chat/citations.py`:
-- Only flags decimals (e.g. 2.1, 2.1%), thousands-separated numbers, and
-  explicit-percent integers. Plain integers (1, 5, 10), ISO dates, and
-  "Month Day, Year" written-out dates are ignored.
-
-Invoked as:
-
-  - type: python
-    value: file://citation_discipline/assert_citations.py
+Aligned with backend/app/chat/citations.py for shape (decimals, thousands,
+explicit %), but lenient about restatements: if "1.2%" is cited, a later
+"1.2 percentage points" is fine. Production stays strict (retries on any
+uncited mention) — the eval just guards against fabricated values.
 """
 
 from __future__ import annotations
@@ -19,7 +14,6 @@ import re
 from typing import Any
 
 CITATION_RE = re.compile(r"\[(ec_[a-f0-9]{6,})\]")
-# Same shape as backend/app/chat/citations._FINANCIAL_NUMBER_RE.
 FINANCIAL_NUMBER_RE = re.compile(
     r"(?<!\d)(?:"
     r"\d+\.\d+%?"
@@ -36,6 +30,11 @@ WRITTEN_DATE_RE = re.compile(
 )
 LOOKBEHIND_WINDOW = 80
 LOOKAHEAD_WINDOW = 40
+
+
+def _normalize_value(num: str) -> str:
+    """Strip % and commas so '1.2%' and '1.2' compare equal."""
+    return num.rstrip("%").replace(",", "")
 
 
 def _collect_fact_pack_ids(fact_pack_raw: str) -> set[str]:
@@ -60,6 +59,19 @@ def _collect_fact_pack_ids(fact_pack_raw: str) -> set[str]:
     return ids
 
 
+def _cited_values(output: str) -> set[str]:
+    """Distinct numerical values that appear in the lookback window of any
+    citation marker. These are the values the model has grounded.
+    """
+    seen: set[str] = set()
+    for marker in CITATION_RE.finditer(output):
+        start = max(0, marker.start() - LOOKBEHIND_WINDOW)
+        window = output[start : marker.start()]
+        for m in FINANCIAL_NUMBER_RE.finditer(window):
+            seen.add(_normalize_value(m.group(0)))
+    return seen
+
+
 def get_assert(output: str, context: dict[str, Any]) -> dict[str, Any]:
     valid_ids = _collect_fact_pack_ids(context["vars"].get("fact_pack", ""))
     failures: list[str] = []
@@ -69,10 +81,7 @@ def get_assert(output: str, context: dict[str, Any]) -> dict[str, Any]:
     if bad_ids:
         failures.append(f"unknown engine_call_ids cited: {sorted(bad_ids)}")
 
-    cited_spans: list[tuple[int, int]] = [
-        (max(0, m.start() - LOOKBEHIND_WINDOW), m.start())
-        for m in CITATION_RE.finditer(output)
-    ]
+    cited_value_set = _cited_values(output)
     iso_dates = [(m.start(), m.end()) for m in ISO_DATE_RE.finditer(output)]
     written_dates = [(m.start(), m.end()) for m in WRITTEN_DATE_RE.finditer(output)]
     skip_ranges = iso_dates + written_dates
@@ -81,10 +90,7 @@ def get_assert(output: str, context: dict[str, Any]) -> dict[str, Any]:
     for m in FINANCIAL_NUMBER_RE.finditer(output):
         if any(start <= m.start() and m.end() <= end for start, end in skip_ranges):
             continue
-        if any(start <= m.start() < end for start, end in cited_spans):
-            continue
-        window_after = output[m.end() : m.end() + LOOKAHEAD_WINDOW]
-        if CITATION_RE.search(window_after.split(".")[0]):
+        if _normalize_value(m.group(0)) in cited_value_set:
             continue
         uncited_numerics.append(m.group(0))
     if uncited_numerics:
@@ -92,4 +98,8 @@ def get_assert(output: str, context: dict[str, Any]) -> dict[str, Any]:
 
     if failures:
         return {"pass": False, "score": 0, "reason": "; ".join(failures)}
-    return {"pass": True, "score": 1, "reason": "every financial number is cited"}
+    return {
+        "pass": True,
+        "score": 1,
+        "reason": "every distinct financial value is cited at least once",
+    }
