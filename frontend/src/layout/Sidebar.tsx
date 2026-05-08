@@ -1,11 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 import { companiesApi } from "../api/companies";
 import { Hairline } from "../design/primitives";
 import { useCompanies } from "../state/companies";
+import { useThreads } from "../state/threads";
 
 import { CompanySwitcher } from "./CompanySwitcher";
+import { SidebarThreadList } from "./SidebarThreadList";
 import { UserMenu } from "./UserMenu";
 
 export function Sidebar() {
@@ -15,6 +17,7 @@ export function Sidebar() {
   });
   const activeCompanyId = useCompanies((s) => s.activeCompanyId);
   const setActiveCompanyId = useCompanies((s) => s.setActiveCompanyId);
+  const setActiveThreadId = useThreads((s) => s.setActiveThreadId);
 
   useEffect(() => {
     if (activeCompanyId !== null) return;
@@ -22,6 +25,17 @@ export function Sidebar() {
     const primary = companies.find((c) => c.is_primary);
     setActiveCompanyId((primary ?? companies[0])?.id ?? null);
   }, [activeCompanyId, companies, setActiveCompanyId]);
+
+  const previousCompanyId = useRef<number | null>(null);
+  useEffect(() => {
+    if (
+      previousCompanyId.current !== null &&
+      previousCompanyId.current !== activeCompanyId
+    ) {
+      setActiveThreadId(null);
+    }
+    previousCompanyId.current = activeCompanyId;
+  }, [activeCompanyId, setActiveThreadId]);
 
   return (
     <aside
@@ -39,10 +53,11 @@ export function Sidebar() {
         />
       </div>
       <Hairline />
-      <nav className="flex-1 px-sm py-md overflow-y-auto" aria-label="Module navigation">
-        <SidebarItem label="Drivers" active />
-        <div className="px-md pt-lg pb-xs t-meta">Conversations</div>
-        <p className="px-md t-small text-text-tertiary">No conversations yet.</p>
+      <nav className="flex-1 py-md overflow-y-auto" aria-label="Module navigation">
+        <div className="px-sm pb-md">
+          <SidebarItem label="Drivers" active />
+        </div>
+        <SidebarThreadList />
       </nav>
       <Hairline />
       <div className="p-sm">
