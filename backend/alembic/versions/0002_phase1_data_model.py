@@ -485,26 +485,46 @@ def upgrade() -> None:
     # ------------------------------------------------------------------
     # Read-only role for ad_hoc_query
     # ------------------------------------------------------------------
+    # DO dev databases run the migration as a user without CREATEROLE, so
+    # we guard both the CREATE and the GRANT on rolcreaterole and the role
+    # existing. On a real managed Postgres (or local dev) the role is
+    # created and granted; on DO dev tier this is a silent no-op and
+    # ad_hoc_query relies on its application-level sqlglot guard.
     op.execute(
         """
         DO $$
         BEGIN
-            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'engine_readonly') THEN
+            IF (SELECT rolcreaterole FROM pg_roles WHERE rolname = current_user)
+               AND NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'engine_readonly') THEN
                 CREATE ROLE engine_readonly NOLOGIN;
             END IF;
         END$$;
         """
     )
     op.execute(
-        "GRANT SELECT ON company_v, price_bar_v, news_item_v, "
-        "macro_observation_v, peer_relationship_v TO engine_readonly"
+        """
+        DO $$
+        BEGIN
+            IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'engine_readonly') THEN
+                GRANT SELECT ON company_v, price_bar_v, news_item_v,
+                    macro_observation_v, peer_relationship_v TO engine_readonly;
+            END IF;
+        END$$;
+        """
     )
 
 
 def downgrade() -> None:
     op.execute(
-        "REVOKE SELECT ON company_v, price_bar_v, news_item_v, "
-        "macro_observation_v, peer_relationship_v FROM engine_readonly"
+        """
+        DO $$
+        BEGIN
+            IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'engine_readonly') THEN
+                REVOKE SELECT ON company_v, price_bar_v, news_item_v,
+                    macro_observation_v, peer_relationship_v FROM engine_readonly;
+            END IF;
+        END$$;
+        """
     )
     op.execute("DROP INDEX IF EXISTS engine_call_lookup")
     op.drop_table("engine_call")
