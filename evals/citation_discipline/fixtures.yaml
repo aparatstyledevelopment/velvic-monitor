@@ -1,0 +1,139 @@
+# Test fixtures for citation_discipline. Each test pairs a question with a
+# pre-built FactPack and asserts that every numeric claim in the answer is
+# followed by a `[ec_xxx]` citation drawn from the FactPack ids.
+#
+# Used by promptfoo (see ../promptfoo.yaml). Each row turns into one test.
+
+- description: "VOLV-B move with peer + sector context"
+  vars:
+    question: "Why did Volvo move yesterday?"
+    fact_pack: |
+      {
+        "company": {"ticker": "VOLV-B", "name": "Volvo AB"},
+        "as_of": "2026-04-30",
+        "price_move": {"engine_call_id": "ec_a1b2c3d4", "daily_return_pct": -2.1},
+        "benchmark": {"engine_call_id": "ec_e5f6a7b8", "label": "OMX Stockholm PI", "daily_return_pct": -0.4},
+        "sector_proxy": {"engine_call_id": "ec_c9d0e1f2", "label": "Industrials", "daily_return_pct": -1.2},
+        "peer_returns": {"engine_call_id": "ec_3a4b5c6d", "peers": [{"ticker": "SAND-B", "return_pct": -1.6}]}
+      }
+
+- description: "ABB earnings beat trigger"
+  vars:
+    question: "Why did ABB rise yesterday?"
+    fact_pack: |
+      {
+        "company": {"ticker": "ABB", "name": "ABB Ltd"},
+        "as_of": "2026-04-29",
+        "price_move": {"engine_call_id": "ec_aa11bb22", "daily_return_pct": 3.4},
+        "benchmark": {"engine_call_id": "ec_cc33dd44", "label": "OMX Stockholm PI", "daily_return_pct": 0.6},
+        "news": {"engine_call_id": "ec_ee55ff66", "items": [{"headline": "ABB Q1 EPS beats estimate"}]}
+      }
+
+- description: "SAND-B with macro context"
+  vars:
+    question: "What drove Sandvik down today?"
+    fact_pack: |
+      {
+        "company": {"ticker": "SAND-B", "name": "Sandvik AB"},
+        "as_of": "2026-04-28",
+        "price_move": {"engine_call_id": "ec_77aabb88", "daily_return_pct": -1.8},
+        "macro_snapshot": {"engine_call_id": "ec_99ccdd00", "series": [{"label": "Riksbank repo", "value": 2.25}]}
+      }
+
+- description: "EQT flat day"
+  vars:
+    question: "Did EQT do anything yesterday?"
+    fact_pack: |
+      {
+        "company": {"ticker": "EQT", "name": "EQT AB"},
+        "as_of": "2026-04-30",
+        "price_move": {"engine_call_id": "ec_ee11ff22", "daily_return_pct": 0.05},
+        "benchmark": {"engine_call_id": "ec_aa33bb44", "daily_return_pct": -0.1}
+      }
+
+- description: "INVE-B vs sector"
+  vars:
+    question: "Investor lagged the index — by how much?"
+    fact_pack: |
+      {
+        "company": {"ticker": "INVE-B", "name": "Investor AB"},
+        "as_of": "2026-04-25",
+        "price_move": {"engine_call_id": "ec_a1c2e3d4", "daily_return_pct": -0.9},
+        "benchmark": {"engine_call_id": "ec_b5d6f7a8", "daily_return_pct": 0.3}
+      }
+
+- description: "ATCO-A with insider activity"
+  vars:
+    question: "Why did Atlas Copco fall?"
+    fact_pack: |
+      {
+        "company": {"ticker": "ATCO-A", "name": "Atlas Copco"},
+        "as_of": "2026-04-22",
+        "price_move": {"engine_call_id": "ec_99aa88bb", "daily_return_pct": -2.6},
+        "peer_returns": {"engine_call_id": "ec_cc77dd66", "peers": [{"ticker": "SAND-B", "return_pct": -1.9}]}
+      }
+
+- description: "HM-B retail soft data"
+  vars:
+    question: "Was the H&M move sector-driven?"
+    fact_pack: |
+      {
+        "company": {"ticker": "HM-B", "name": "Hennes & Mauritz"},
+        "as_of": "2026-04-15",
+        "price_move": {"engine_call_id": "ec_ab12cd34", "daily_return_pct": -3.1},
+        "sector_proxy": {"engine_call_id": "ec_ef56ab78", "label": "Consumer Discretionary", "daily_return_pct": -2.9}
+      }
+
+- description: "ERIC-B telco peer benchmark"
+  vars:
+    question: "Did Ericsson outperform peers?"
+    fact_pack: |
+      {
+        "company": {"ticker": "ERIC-B", "name": "Ericsson"},
+        "as_of": "2026-04-18",
+        "price_move": {"engine_call_id": "ec_11aa22bb", "daily_return_pct": 1.2},
+        "peer_returns": {"engine_call_id": "ec_33cc44dd", "peers": [{"ticker": "NOKIA", "return_pct": 0.4}]}
+      }
+
+- description: "SEB-A bank rate decision"
+  vars:
+    question: "How big a move did SEB have on the rate decision?"
+    fact_pack: |
+      {
+        "company": {"ticker": "SEB-A", "name": "Skandinaviska Enskilda Banken"},
+        "as_of": "2026-04-20",
+        "price_move": {"engine_call_id": "ec_22ee33ff", "daily_return_pct": -0.7},
+        "macro_snapshot": {"engine_call_id": "ec_44gg55hh", "series": [{"label": "Riksbank repo", "value": 2.0}]}
+      }
+
+- description: "TELIA dividend day"
+  vars:
+    question: "Did Telia move on the dividend?"
+    fact_pack: |
+      {
+        "company": {"ticker": "TELIA", "name": "Telia Company"},
+        "as_of": "2026-04-12",
+        "price_move": {"engine_call_id": "ec_55kk66ll", "daily_return_pct": -1.4},
+        "news": {"engine_call_id": "ec_77mm88nn", "items": [{"headline": "Telia goes ex-dividend"}]}
+      }
+
+- description: "SHB-A vs sector flat"
+  vars:
+    question: "Was Handelsbanken flat to sector?"
+    fact_pack: |
+      {
+        "company": {"ticker": "SHB-A", "name": "Svenska Handelsbanken"},
+        "as_of": "2026-04-08",
+        "price_move": {"engine_call_id": "ec_99pp00qq", "daily_return_pct": 0.2},
+        "sector_proxy": {"engine_call_id": "ec_aa11bb22", "label": "Financials", "daily_return_pct": 0.3}
+      }
+
+- description: "BOL daily return"
+  vars:
+    question: "What was Boliden's return yesterday?"
+    fact_pack: |
+      {
+        "company": {"ticker": "BOL", "name": "Boliden"},
+        "as_of": "2026-04-05",
+        "price_move": {"engine_call_id": "ec_cc33dd44", "daily_return_pct": -2.4}
+      }

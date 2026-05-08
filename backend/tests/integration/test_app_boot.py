@@ -31,3 +31,12 @@ def test_briefing_routes_registered() -> None:
     assert "/api/companies/{company_id}/briefings/latest" in paths
     assert "/api/companies/{company_id}/briefings/{date}" in paths
     assert "/api/companies/{company_id}/briefings/{date}/evidence" in paths
+
+
+def test_chat_routes_registered() -> None:
+    client = TestClient(create_app())
+    spec = client.get("/api/openapi.json").json()
+    paths = spec.get("paths", {})
+    assert "/api/chat/threads" in paths
+    assert "/api/chat/threads/{thread_id}" in paths
+    assert "/api/chat/threads/{thread_id}/turns" in paths

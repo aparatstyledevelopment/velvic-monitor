@@ -42,6 +42,8 @@ class EngineToolSpec:
     description: str
     cost_class: CostClass
     callable: Callable[..., Awaitable[EngineResult[Any]]]
+    signature: inspect.Signature
+    type_hints: dict[str, Any]
     params_model: type[BaseModel] | None = None
     returns_model: type[BaseModel] | None = None
     tags: tuple[str, ...] = field(default_factory=tuple)
@@ -152,6 +154,8 @@ def engine_tool(
             description=description,
             cost_class=cost_class,
             callable=wrapper,
+            signature=sig,
+            type_hints=hints,
             params_model=params_model,
             returns_model=returns_model,
             tags=tags,

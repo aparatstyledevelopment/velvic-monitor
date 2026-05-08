@@ -1,0 +1,21 @@
+# Phase-2 eval suite: every numeric in the model's answer must be cited
+# with a `[ec_xxx]` token drawn from the provided FactPack.
+description: "Velvic chat — citation discipline"
+
+prompts:
+  - file://prompt.json
+
+providers:
+  - id: anthropic:messages:claude-haiku-4-5-20251001
+    config:
+      max_tokens: 512
+      temperature: 0.0
+
+defaultTest:
+  options:
+    cache: true
+  assert:
+    - type: python
+      value: file://assert_citations.py
+
+tests: file://fixtures.yaml

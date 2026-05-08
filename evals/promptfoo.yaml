@@ -1,6 +1,8 @@
-# Promptfoo entry point. Phase 0 ships a smoke config; full suites land in
-# Phase 1 (briefing_quality) and Phase 2 (citation_discipline, refusal_behavior).
-description: "Velvic Monitor LLM eval suite"
+# Smoke entry point. Phase 1's briefing_quality and Phase 2's
+# citation_discipline + refusal_behavior live in sibling configs invoked by
+# `make evals`. Each suite has its own promptfoo.yaml so prompts and
+# fixtures stay co-located.
+description: "Velvic Monitor LLM eval suite -- smoke"
 
 prompts:
   - file://briefing_quality/prompt.txt
