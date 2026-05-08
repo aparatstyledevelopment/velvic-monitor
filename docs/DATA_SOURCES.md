@@ -5,7 +5,7 @@ Per-source integration specs. Update whenever a source changes.
 | Source | Module | Cadence | Auth | Format | ToS |
 |---|---|---|---|---|---|
 | Yahoo Finance | `yahoo_finance.py` | Nightly 17:45 CET | None | OHLCV | OK for non-commercial; paid mirror later |
-| MFN | `mfn.py` | Every 15 min in market hours | None | RSS / Atom | Designed for redistribution |
+| MFN | `mfn.py` | DISABLED (free feed retired May 2026) | n/a | n/a | Commercial API only |
 | Riksbank SWEA | `riksbank.py` | Daily 09:00 CET | None | JSON | Public |
 | SCB PXWeb | `scb.py` | Weekly Mon 06:00 CET | None | JSON | Public |
 | FRED | `fred.py` | Daily 09:30 CET | API key (free) | JSON | API ToS, free tier |
@@ -65,6 +65,16 @@ state.
   API timeline. Skeleton kept so the BaseCrawler contract is in place
   for the future cutover.
 
+- **MFN** — Free public Atom feed retired in 2026.
+  `mfn.se/all/a/{slug}?format=atom` now serves `text/html` regardless of
+  the query param, and every alternate path probed (`.atom`, `.rss`,
+  `.xml`, `/feed`, `/api/feeds/...`) returns 500. `mfn.se/robots.txt`
+  also explicitly disallows `*.xml$ / *.rss$ / *.atom$ / *.json$`,
+  including the `sitemap.xml` endpoint that does still serve a custom
+  feed format. Beat task disabled in `DISABLED_CRAWLERS`; backfill
+  script no longer invokes `MfnCrawler`. Re-enabling requires either
+  the commercial MFN API or a redistribution partnership.
+
 ### Verified OK
 
 - **FRED** — Endpoint `https://api.stlouisfed.org/fred/series/observations`
@@ -80,12 +90,6 @@ state.
   series list at `riksbank.se/en-gb/statistics/...series-for-the-api/`
   before first scheduled run. API limits are 200/min and 30k/week — well
   within budget.
-
-- **MFN** — Per-issuer Atom URL pattern `mfn.se/all/a/{slug}?format=atom`
-  is plausible based on observed issuer pages but `?format=atom` is
-  undocumented in public search results. Confirm against a known issuer
-  (e.g. `mfn.se/all/a/volvo?format=atom`) before turning on the
-  `crawl.mfn` beat task. Slug list lives on `Company.mfn_slug`.
 
 - **FI Insider (`marknadssok.fi.se/publiceringsklient/...`)** — Host
   confirmed; the CSV-export URL with `button=export` came from

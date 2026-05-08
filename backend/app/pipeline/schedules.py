@@ -24,7 +24,13 @@ from celery.schedules import crontab
 # - "scb": the Layer-2 audit (docs/DATA_SOURCES.md) showed the CPI
 #   table id needs swapping to the 2020=100 successor before the run
 #   produces meaningful data.
-DISABLED_CRAWLERS: frozenset[str] = frozenset({"esap", "scb"})
+# - "mfn": the free public Atom feed at `mfn.se/all/a/{slug}?format=atom`
+#   was retired in 2026; the URL now serves text/html and every alternate
+#   path (.atom/.rss/.xml/feed/api) is either 500 or robots-disallowed
+#   per `mfn.se/robots.txt` (`Disallow: *.xml$`, `*.rss$`, `*.atom$`,
+#   `*.json$`). Re-enabling requires either the commercial API or a
+#   partnership; both are out of scope for v1.
+DISABLED_CRAWLERS: frozenset[str] = frozenset({"esap", "scb", "mfn"})
 
 _FULL_SCHEDULE: dict[str, dict[str, object]] = {
     "yahoo-nightly": {

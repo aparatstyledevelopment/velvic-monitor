@@ -9,9 +9,12 @@ Run: `python -m app.admin.backfill`
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Awaitable, Callable
 from datetime import date, timedelta
+from typing import Any
 
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import Company
 from app.core.db import SessionLocal
@@ -19,7 +22,6 @@ from app.core.logging import logger
 from app.crawlers.base import DateRange
 from app.crawlers.company_ir_rss import CompanyIrRssCrawler
 from app.crawlers.fred import FredCrawler
-from app.crawlers.mfn import MfnCrawler
 from app.crawlers.riksbank import RiksbankCrawler
 from app.crawlers.yahoo_finance import YahooFinanceCrawler
 from app.engine.drivers.attribution import compute_attribution
@@ -27,6 +29,20 @@ from app.engine.drivers.briefing import generate_briefing
 from app.ingestion.macro import ingest_macro
 from app.ingestion.news import ingest_news
 from app.ingestion.prices import ingest_prices
+
+
+async def _safe_step(
+    session: AsyncSession, label: str, runner: Callable[[], Awaitable[Any]]
+) -> bool:
+    try:
+        await runner()
+    except Exception as e:  # noqa: BLE001 -- one bad source must not kill the rest
+        await session.rollback()
+        logger.warning("backfill_step_failed", step=label, error=str(e))
+        return False
+    await session.commit()
+    logger.info("backfill_step_ok", step=label)
+    return True
 
 
 async def backfill(*, days: int = 14) -> None:
@@ -38,28 +54,28 @@ async def backfill(*, days: int = 14) -> None:
             .all()
         )
         symbols = [c.yahoo_symbol for c in rows]
-        slug_map = {c.mfn_slug: c.ticker for c in rows if c.mfn_slug}
         ir_feeds = [(c.id, c.ir_rss_url) for c in rows if c.ir_rss_url]
 
         if symbols:
-            logger.info("backfill_yahoo", symbols=len(symbols))
-            await YahooFinanceCrawler(symbols=symbols).crawl(session, window)
-        if slug_map:
-            logger.info("backfill_mfn", slugs=len(slug_map))
-            await MfnCrawler(slug_to_ticker=slug_map).crawl(session, window)
-        logger.info("backfill_riksbank")
-        await RiksbankCrawler().crawl(session, window)
-        logger.info("backfill_fred")
-        await FredCrawler().crawl(session, window)
+            await _safe_step(
+                session,
+                "yahoo",
+                lambda: YahooFinanceCrawler(symbols=symbols).crawl(session, window),
+            )
+        await _safe_step(
+            session, "riksbank", lambda: RiksbankCrawler().crawl(session, window)
+        )
+        await _safe_step(session, "fred", lambda: FredCrawler().crawl(session, window))
         if ir_feeds:
-            logger.info("backfill_ir_rss", feeds=len(ir_feeds))
-            await CompanyIrRssCrawler(feeds=ir_feeds).crawl(session, window)
+            await _safe_step(
+                session,
+                "ir_rss",
+                lambda: CompanyIrRssCrawler(feeds=ir_feeds).crawl(session, window),
+            )
 
-        logger.info("backfill_ingest")
-        await ingest_prices(session)
-        await ingest_news(session)
-        await ingest_macro(session)
-        await session.commit()
+        await _safe_step(session, "ingest_prices", lambda: ingest_prices(session))
+        await _safe_step(session, "ingest_news", lambda: ingest_news(session))
+        await _safe_step(session, "ingest_macro", lambda: ingest_macro(session))
 
         as_of = date.today() - timedelta(days=1)
         for c in rows:
