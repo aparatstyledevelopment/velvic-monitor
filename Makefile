@@ -57,6 +57,8 @@ backfill:
 
 evals:
 	cd evals && npx promptfoo eval -c promptfoo.yaml
+	cd evals/citation_discipline && npx promptfoo eval -c promptfoo.yaml
+	cd evals/refusal_behavior && npx promptfoo eval -c promptfoo.yaml
 
 build:
 	cd frontend && npm run build

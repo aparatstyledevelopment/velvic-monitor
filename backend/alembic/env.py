@@ -11,6 +11,7 @@ from alembic import context
 
 # Import models so Base.metadata is populated.
 from app.auth import models as _auth_models  # noqa: F401
+from app.chat import models as _chat_models  # noqa: F401
 from app.core.config import get_settings
 from app.core.db import Base
 from app.crawlers import models as _crawler_models  # noqa: F401
