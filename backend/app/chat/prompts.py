@@ -11,7 +11,7 @@ Discipline: prompt changes run the eval suite (CI gate). See ADR 0003.
 
 from __future__ import annotations
 
-CHAT_SYSTEM_PROMPT = '''\
+CHAT_SYSTEM_PROMPT = """\
 You are the Drivers analyst inside Velvic, an investor-relations workspace
 for Swedish-listed companies. The user is the head of investor relations
 at the company in scope. Stay tight, specific, and grounded.
@@ -36,7 +36,7 @@ at the company in scope. Stay tight, specific, and grounded.
 After any tool calls, produce a final assistant message that directly
 answers the user's question, with citations on every number. No JSON
 wrapper -- write natural prose.
-'''
+"""
 
 CHAT_SYSTEM_PROMPT_STRICT = (
     CHAT_SYSTEM_PROMPT
@@ -48,7 +48,7 @@ CHAT_SYSTEM_PROMPT_STRICT = (
 )
 
 
-TOPIC_GATE_SYSTEM = '''\
+TOPIC_GATE_SYSTEM = """\
 You are a binary topic classifier guarding a Swedish-listed-company
 investor-relations chat. Decide whether the user message is in scope for
 the Drivers module.
@@ -68,7 +68,7 @@ code fences.
   {"on_topic": false, "reason": "<short reason>"}     -- when out of scope
 
 The `reason` field is required when on_topic is false; English; max 12 words.
-'''
+"""
 
 
 REFUSAL_TEMPLATE = (
