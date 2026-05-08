@@ -3,6 +3,12 @@
 Pulls scalar daily observations for the series we care about: policy rate,
 SEK/EUR, SEK/USD, 10Y govt yield. Series IDs verified against the SWEA
 catalog at production-deploy time; placeholders may need adjustment.
+
+Authentication: SWEA migrated to Azure API Management; an
+`Ocp-Apim-Subscription-Key` header is now required even for the rate /
+exchange-rate read endpoints. Set `RIKSBANK_SUBSCRIPTION_KEY` to enable.
+Without the key, requests succeed with status 200 but return a non-JSON
+body that fails to parse (`Expecting value: line 1 column 1`).
 """
 
 from __future__ import annotations
@@ -16,7 +22,8 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.crawlers.base import BaseCrawler, DateRange, PolitenessConfig
+from app.core.config import get_settings
+from app.crawlers.base import BaseCrawler, CrawlerError, DateRange, PolitenessConfig
 from app.crawlers.models import RiksbankObservation
 from app.crawlers.registry import register
 
@@ -51,6 +58,14 @@ class RiksbankCrawler(BaseCrawler[ParsedObs]):
         self._series = list(series_ids)
 
     async def fetch_batches(self, window: DateRange) -> AsyncIterator[dict[str, Any]]:
+        key = get_settings().riksbank_subscription_key
+        if not key:
+            raise CrawlerError(
+                "RIKSBANK_SUBSCRIPTION_KEY not set; SWEA requires an Azure APIM "
+                "subscription key. Register at developer.api.riksbank.se, set "
+                "the secret, and remove 'riksbank' from DISABLED_CRAWLERS."
+            )
+        headers = {"Ocp-Apim-Subscription-Key": key}
         async with self.http() as client:
             for sid in self._series:
                 url = self.base_url.format(
@@ -58,7 +73,7 @@ class RiksbankCrawler(BaseCrawler[ParsedObs]):
                     from_d=window.start.isoformat(),
                     to_d=window.end.isoformat(),
                 )
-                resp = await self.get_with_retry(client, url)
+                resp = await self.get_with_retry(client, url, headers=headers)
                 yield {"series_id": sid, "data": resp.json()}
 
     def parse(self, batch: dict[str, Any]) -> Sequence[ParsedObs]:

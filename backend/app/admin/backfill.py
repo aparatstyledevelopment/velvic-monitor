@@ -22,7 +22,6 @@ from app.core.logging import logger
 from app.crawlers.base import DateRange
 from app.crawlers.company_ir_rss import CompanyIrRssCrawler
 from app.crawlers.fred import FredCrawler
-from app.crawlers.riksbank import RiksbankCrawler
 from app.crawlers.yahoo_finance import YahooFinanceCrawler
 from app.engine.drivers.attribution import compute_attribution
 from app.engine.drivers.briefing import generate_briefing
@@ -62,9 +61,6 @@ async def backfill(*, days: int = 14) -> None:
                 "yahoo",
                 lambda: YahooFinanceCrawler(symbols=symbols).crawl(session, window),
             )
-        await _safe_step(
-            session, "riksbank", lambda: RiksbankCrawler().crawl(session, window)
-        )
         await _safe_step(session, "fred", lambda: FredCrawler().crawl(session, window))
         if ir_feeds:
             await _safe_step(
@@ -79,20 +75,26 @@ async def backfill(*, days: int = 14) -> None:
 
         as_of = date.today() - timedelta(days=1)
         for c in rows:
-            if c.ticker.startswith("^"):
+            # Snapshot identifying attrs before any session.rollback() — a
+            # rollback expires SA attributes, and a later c.ticker access in
+            # the except handler triggers a sync lazy-load that fails with
+            # MissingGreenlet inside the asyncio loop.
+            ticker = c.ticker
+            company_id = c.id
+            if ticker.startswith("^"):
                 continue
             try:
-                await compute_attribution(session, company_id=c.id, as_of=as_of)
-                await generate_briefing(session, company_id=c.id, as_of=as_of)
+                await compute_attribution(session, company_id=company_id, as_of=as_of)
+                await generate_briefing(session, company_id=company_id, as_of=as_of)
                 await session.commit()
                 logger.info(
-                    "backfill_briefing_ok", company=c.ticker, as_of=as_of.isoformat()
+                    "backfill_briefing_ok", company=ticker, as_of=as_of.isoformat()
                 )
             except Exception as e:
                 await session.rollback()
                 logger.exception(
                     "backfill_briefing_failed",
-                    company=c.ticker,
+                    company=ticker,
                     as_of=as_of.isoformat(),
                     error=str(e),
                 )

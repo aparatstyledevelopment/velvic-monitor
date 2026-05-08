@@ -30,7 +30,13 @@ from celery.schedules import crontab
 #   per `mfn.se/robots.txt` (`Disallow: *.xml$`, `*.rss$`, `*.atom$`,
 #   `*.json$`). Re-enabling requires either the commercial API or a
 #   partnership; both are out of scope for v1.
-DISABLED_CRAWLERS: frozenset[str] = frozenset({"esap", "scb", "mfn"})
+# - "riksbank": SWEA migrated to Azure APIM and now requires an
+#   `Ocp-Apim-Subscription-Key` header even for the rates / FX read
+#   endpoints. Without the key, requests return 200 with a non-JSON body
+#   that crashes `resp.json()`. Re-enable by registering at
+#   developer.api.riksbank.se, setting RIKSBANK_SUBSCRIPTION_KEY in DO
+#   secrets, and removing "riksbank" from this set.
+DISABLED_CRAWLERS: frozenset[str] = frozenset({"esap", "scb", "mfn", "riksbank"})
 
 _FULL_SCHEDULE: dict[str, dict[str, object]] = {
     "yahoo-nightly": {

@@ -6,7 +6,7 @@ Per-source integration specs. Update whenever a source changes.
 |---|---|---|---|---|---|
 | Yahoo Finance | `yahoo_finance.py` | Nightly 17:45 CET | None | OHLCV | OK for non-commercial; paid mirror later |
 | MFN | `mfn.py` | DISABLED (free feed retired May 2026) | n/a | n/a | Commercial API only |
-| Riksbank SWEA | `riksbank.py` | Daily 09:00 CET | None | JSON | Public |
+| Riksbank SWEA | `riksbank.py` | DISABLED (Azure APIM key required since 2026) | `Ocp-Apim-Subscription-Key` | JSON | Public via key |
 | SCB PXWeb | `scb.py` | Weekly Mon 06:00 CET | None | JSON | Public |
 | FRED | `fred.py` | Daily 09:30 CET | API key (free) | JSON | API ToS, free tier |
 | ESAP | `esap.py` | Hourly | None | XML | EU regulatory |
@@ -81,15 +81,19 @@ state.
   and series IDs `DCOILBRENTEU`, `DGS10`, `DEXUSEU` confirmed against
   current FRED docs. Free API key (`FRED_API_KEY`) required.
 
-### VERIFY before turning on (still open)
+- **Riksbank SWEA** — Migrated to Azure API Management; the rates / FX
+  read endpoints now require `Ocp-Apim-Subscription-Key`. Without the
+  key, requests return 200 with a non-JSON body that crashes
+  `resp.json()` (observed in pod May 2026). Crawler now reads the key
+  from `Settings.riksbank_subscription_key` and raises a `CrawlerError`
+  with operator instructions when missing. Beat task disabled in
+  `DISABLED_CRAWLERS`; backfill no longer invokes `RiksbankCrawler`.
+  Re-enable: register at developer.api.riksbank.se, set
+  `RIKSBANK_SUBSCRIPTION_KEY` in DO secrets, remove from
+  `DISABLED_CRAWLERS`, and add the import + `_safe_step` call back to
+  `backfill.py`.
 
-- **Riksbank SWEA** — `/swea/v1/Observations/{series}/{from}/{to}` endpoint
-  shape confirmed against search results. Series IDs `SECBREPOEFF`,
-  `SEKEURPMI`, `SEKUSDPMI`, `SEKGVB10YC` are the documented IDs but
-  haven't been hit live from this repo. Cross-check against the live
-  series list at `riksbank.se/en-gb/statistics/...series-for-the-api/`
-  before first scheduled run. API limits are 200/min and 30k/week — well
-  within budget.
+### VERIFY before turning on (still open)
 
 - **FI Insider (`marknadssok.fi.se/publiceringsklient/...`)** — Host
   confirmed; the CSV-export URL with `button=export` came from

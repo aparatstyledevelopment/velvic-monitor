@@ -69,6 +69,7 @@ def _envelope(*, data: Any, sources: list[SourceRef]) -> EngineResult[Any]:
         "moved on a given date or recent window."
     ),
     cost_class="cheap",
+    returns_model=PriceMove,
 )
 async def get_price_move(
     *, session: AsyncSession, company_id: int, as_of: date
@@ -159,6 +160,7 @@ async def get_price_move(
         "date. Use to contextualize a single-stock move against the market."
     ),
     cost_class="cheap",
+    returns_model=BenchmarkMove,
 )
 async def get_benchmark_move(
     *, session: AsyncSession, as_of: date
@@ -230,6 +232,7 @@ async def get_benchmark_move(
         "Use when comparing a single-stock move against industry comparables."
     ),
     cost_class="cheap",
+    returns_model=PeerReturns,
 )
 async def get_peer_returns(
     *, session: AsyncSession, company_id: int, as_of: date
@@ -292,6 +295,7 @@ async def get_peer_returns(
         "or a simple peer-average fallback. Surfaces which proxy was used."
     ),
     cost_class="cheap",
+    returns_model=SectorReturn,
 )
 async def get_sector_proxy_return(
     *, session: AsyncSession, company_id: int, as_of: date
@@ -358,6 +362,7 @@ async def get_sector_proxy_return(
         "around a stock move."
     ),
     cost_class="cheap",
+    returns_model=MacroSnapshot,
 )
 async def get_macro_snapshot(
     *, session: AsyncSession, as_of: date
@@ -411,6 +416,7 @@ async def get_macro_snapshot(
         "MAR-flagged items first, then chronological. Capped at 10 items."
     ),
     cost_class="cheap",
+    returns_model=NewsList,
 )
 async def get_news_for_company(
     *,
@@ -477,6 +483,7 @@ async def get_news_for_company(
         "Use whenever the answer needs a company's basic identity."
     ),
     cost_class="cheap",
+    returns_model=CompanyMeta,
 )
 async def get_company_meta(
     *, session: AsyncSession, company_id: int
@@ -518,6 +525,7 @@ async def get_company_meta(
         "computed yet for the date."
     ),
     cost_class="cheap",
+    returns_model=DailyAttributionOut,
 )
 async def get_attribution(
     *, session: AsyncSession, company_id: int, as_of: date

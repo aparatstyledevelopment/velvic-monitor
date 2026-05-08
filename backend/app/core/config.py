@@ -63,6 +63,7 @@ class Settings(BaseSettings):
     google_api_key: str | None = None
     fred_api_key: str | None = None
     postmark_token: str | None = None
+    riksbank_subscription_key: str | None = None
 
     @field_validator("database_url", mode="before")
     @classmethod
