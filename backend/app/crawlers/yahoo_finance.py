@@ -188,10 +188,16 @@ def _int(v: Any) -> int | None:
 def _to_date(v: Any) -> date | None:
     if v is None:
         return None
-    if isinstance(v, date):
-        return v
+    # Order matters: datetime/Timestamp must be checked before date because
+    # `pandas.Timestamp` inherits from `datetime.datetime` which inherits from
+    # `datetime.date`. `isinstance(ts, date)` is True for a Timestamp, so the
+    # naive order (date first) returns the Timestamp unchanged and downstream
+    # SQLAlchemy comparisons mis-match the stored DATE column, causing the
+    # idempotent-upsert path to fall through to a duplicate INSERT.
     if isinstance(v, datetime):
         return v.date()
+    if isinstance(v, date):
+        return v
     if hasattr(v, "to_pydatetime"):
         # pandas Timestamp; to_pydatetime() returns datetime.
         dt: datetime = v.to_pydatetime()
