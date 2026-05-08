@@ -7,6 +7,7 @@ from sqlalchemy import (
     BigInteger,
     Boolean,
     CheckConstraint,
+    DateTime,
     ForeignKey,
     Integer,
     String,
@@ -44,10 +45,10 @@ class Org(Base):
     )
     billing_email: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
-        nullable=False, server_default=text("now()")
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
     )
     updated_at: Mapped[datetime] = mapped_column(
-        nullable=False, server_default=text("now()")
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
     )
 
     __table_args__ = (
@@ -77,20 +78,28 @@ class AppUser(Base):
     role: Mapped[str] = mapped_column(
         Text, nullable=False, server_default=text("'member'")
     )
-    email_verified_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    email_verified_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     email_verification_token: Mapped[str | None] = mapped_column(Text, nullable=True)
     password_reset_token: Mapped[str | None] = mapped_column(Text, nullable=True)
-    password_reset_expires_at: Mapped[datetime | None] = mapped_column(nullable=True)
-    last_login_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    password_reset_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    last_login_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     failed_login_attempts: Mapped[int] = mapped_column(
         Integer, nullable=False, server_default=text("0")
     )
-    locked_until: Mapped[datetime | None] = mapped_column(nullable=True)
+    locked_until: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
-        nullable=False, server_default=text("now()")
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
     )
     updated_at: Mapped[datetime] = mapped_column(
-        nullable=False, server_default=text("now()")
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
     )
 
     __table_args__ = (
@@ -119,10 +128,10 @@ class Company(Base):
         Boolean, nullable=False, server_default=text("true")
     )
     created_at: Mapped[datetime] = mapped_column(
-        nullable=False, server_default=text("now()")
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
     )
     updated_at: Mapped[datetime] = mapped_column(
-        nullable=False, server_default=text("now()")
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
     )
 
     __table_args__ = (
@@ -150,7 +159,7 @@ class OrgCompanyAccess(Base):
         Boolean, nullable=False, server_default=text("false")
     )
     added_at: Mapped[datetime] = mapped_column(
-        nullable=False, server_default=text("now()")
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
     )
 
 
@@ -165,7 +174,7 @@ class PeerRelationship(Base):
     )
     rank: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
     set_at: Mapped[datetime] = mapped_column(
-        nullable=False, server_default=text("now()")
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
     )
     set_by_user_id: Mapped[UUID | None] = mapped_column(
         PGUUID(as_uuid=True),

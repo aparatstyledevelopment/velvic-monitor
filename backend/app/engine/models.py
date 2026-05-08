@@ -9,6 +9,7 @@ from sqlalchemy import (
     BigInteger,
     CheckConstraint,
     Date,
+    DateTime,
     ForeignKey,
     Integer,
     Numeric,
@@ -44,7 +45,7 @@ class DailyAttribution(Base):
         Numeric(10, 4), nullable=True
     )
     computed_at: Mapped[datetime] = mapped_column(
-        nullable=False, server_default=text("now()")
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
     )
     engine_version: Mapped[str] = mapped_column(Text, nullable=False)
 
@@ -73,7 +74,7 @@ class BriefingCard(Base):
     completion_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
     cost_cents: Mapped[Decimal | None] = mapped_column(Numeric(10, 4), nullable=True)
     generated_at: Mapped[datetime] = mapped_column(
-        nullable=False, server_default=text("now()")
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
     )
 
     __table_args__ = (
@@ -97,7 +98,7 @@ class EngineCall(Base):
     latency_ms: Mapped[int] = mapped_column(Integer, nullable=False)
     engine_version: Mapped[str] = mapped_column(Text, nullable=False)
     called_at: Mapped[datetime] = mapped_column(
-        nullable=False, server_default=text("now()")
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
     )
 
     __table_args__ = (
