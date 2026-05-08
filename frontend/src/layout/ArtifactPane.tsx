@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 
 import { Hairline, IconButton } from "../design/primitives";
 import { useArtifacts } from "../state/artifacts";
@@ -23,6 +23,15 @@ export function ArtifactPaneMobile({ children }: { children?: ReactNode }) {
   const open = useArtifacts((s) => s.paneOpenMobile);
   const close = useArtifacts((s) => s.closePaneMobile);
   useHistoryBridge(open, close);
+
+  useEffect(() => {
+    if (!open) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") close();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, close]);
 
   if (!open) return null;
   return (
