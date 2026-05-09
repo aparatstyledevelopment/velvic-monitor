@@ -56,3 +56,11 @@ class ChatThreadDetail(ChatThreadOut):
 
 class ChatTurnIn(BaseModel):
     message: str = Field(min_length=1, max_length=4000)
+    bypass_topic_gate: bool = Field(
+        default=False,
+        description=(
+            "Demo-only escape hatch: skip the on/off-topic guardrail for this "
+            "turn. Intended for product demos and internal eval runs; UI surfaces "
+            "this behind a Settings toggle gated to the demo build."
+        ),
+    )

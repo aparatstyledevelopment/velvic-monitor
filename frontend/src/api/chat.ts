@@ -18,11 +18,18 @@ export const chatApi = {
     }),
   archive: (threadId: string) =>
     api<void>(`/chat/threads/${threadId}`, { method: "DELETE" }),
-  postTurn: (threadId: string, message: string) =>
+  postTurn: (
+    threadId: string,
+    message: string,
+    options: { bypassTopicGate?: boolean } = {},
+  ) =>
     fetch(`/api/chat/threads/${threadId}/turns`, {
       method: "POST",
       credentials: "include",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({
+        message,
+        bypass_topic_gate: options.bypassTopicGate ?? false,
+      }),
     }),
 };

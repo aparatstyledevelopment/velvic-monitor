@@ -369,6 +369,12 @@ export interface components {
         };
         /** ChatTurnIn */
         ChatTurnIn: {
+            /**
+             * Bypass Topic Gate
+             * @description Demo-only escape hatch: skip the on/off-topic guardrail for this turn. Intended for product demos and internal eval runs; UI surfaces this behind a Settings toggle gated to the demo build.
+             * @default false
+             */
+            bypass_topic_gate: boolean;
             /** Message */
             message: string;
         };

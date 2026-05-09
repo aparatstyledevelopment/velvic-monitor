@@ -98,9 +98,17 @@ class ChatOrchestrator:
         user_message: str,
         session: AsyncSession,
         user: AppUser,
+        bypass_topic_gate: bool = False,
     ) -> AsyncGenerator[CompletionEvent, None]:
-        """Drive a turn and return an async iterator of CompletionEvents."""
-        return _drive_turn(self, thread_id, user_message, session, user)
+        """Drive a turn and return an async iterator of CompletionEvents.
+
+        `bypass_topic_gate` is a demo-only escape hatch surfaced through the
+        Settings page; when true the topic-gate refusal path is skipped and
+        every prompt reaches the model.
+        """
+        return _drive_turn(
+            self, thread_id, user_message, session, user, bypass_topic_gate
+        )
 
 
 # ---------------------------------------------------------------------- driver
@@ -112,6 +120,7 @@ async def _drive_turn(
     user_message: str,
     session: AsyncSession,
     user: AppUser,
+    bypass_topic_gate: bool,
 ) -> AsyncGenerator[CompletionEvent, None]:
     thread = await _load_thread(session, thread_id, user)
     company = await session.get(Company, thread.company_id)
@@ -132,19 +141,26 @@ async def _drive_turn(
     session.add(user_turn)
     await session.flush()
 
-    gate_provider = orch._gate_provider_factory(org)
-    decision = await topic_gate_mod.classify(gate_provider, user_message)
-    if not decision.on_topic:
-        refusal = topic_gate_mod.render_refusal(
-            company_name=company.name, reason=decision.reason
+    if bypass_topic_gate:
+        logger.info(
+            "chat_topic_gate_bypassed",
+            thread_id=str(thread_id),
+            user_id=str(user.id),
         )
-        async for ev in _persist_and_emit_refusal(
-            session=session,
-            thread=thread,
-            refusal=refusal,
-        ):
-            yield ev
-        return
+    else:
+        gate_provider = orch._gate_provider_factory(org)
+        decision = await topic_gate_mod.classify(gate_provider, user_message)
+        if not decision.on_topic:
+            refusal = topic_gate_mod.render_refusal(
+                company_name=company.name, reason=decision.reason
+            )
+            async for ev in _persist_and_emit_refusal(
+                session=session,
+                thread=thread,
+                refusal=refusal,
+            ):
+                yield ev
+            return
 
     provider = orch._provider_factory(org)
     tools = tool_specs_for_chat(list(orch._tool_modules))

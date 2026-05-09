@@ -234,6 +234,12 @@
       },
       "ChatTurnIn": {
         "properties": {
+          "bypass_topic_gate": {
+            "default": false,
+            "description": "Demo-only escape hatch: skip the on/off-topic guardrail for this turn. Intended for product demos and internal eval runs; UI surfaces this behind a Settings toggle gated to the demo build.",
+            "title": "Bypass Topic Gate",
+            "type": "boolean"
+          },
           "message": {
             "maxLength": 4000,
             "minLength": 1,

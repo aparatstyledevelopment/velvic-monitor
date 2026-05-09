@@ -272,6 +272,53 @@ async def test_off_topic_emits_refusal_without_calling_main_provider(
 
 
 @pytest.mark.asyncio
+async def test_bypass_topic_gate_skips_classifier_and_runs_main_provider(
+    fixtures: dict[str, Any],
+) -> None:
+    """Demo escape hatch: bypass_topic_gate=True must skip the classifier
+    entirely (no gate provider call) and let the main provider answer even
+    obviously-off-topic prompts."""
+    session = _build_session(fixtures)
+    company = _FakeCompany(fixtures["company_id"], "Volvo Group")
+    org = _FakeOrg(fixtures["org_id"])
+    _patch_session_lookups(session, company=company, org=org)
+    user = _FakeUser(fixtures["user_id"], fixtures["org_id"])
+
+    gate_calls: list[int] = []
+
+    class _GateSpy:
+        name = "spy-gate"
+
+        async def complete(self, **_kw: Any) -> CompletionResult:
+            gate_calls.append(1)
+            raise AssertionError("gate provider must not be called when bypass=True")
+
+        async def stream_complete(self, **_kw: Any) -> AsyncIterator[CompletionEvent]:
+            raise AssertionError("gate provider must not be called when bypass=True")
+            yield  # pragma: no cover
+
+    orch = ChatOrchestrator(
+        provider_factory=lambda _o: MockProvider(text="Hello [ec_demo]."),
+        gate_provider_factory=lambda _o: _GateSpy(),  # type: ignore[arg-type, return-value]
+        tool_modules=("_test",),
+    )
+
+    it = await orch.process_turn(
+        thread_id=fixtures["thread_id"],
+        user_message="recommend Tesla stock",
+        session=session,  # type: ignore[arg-type]
+        user=user,  # type: ignore[arg-type]
+        bypass_topic_gate=True,
+    )
+    events = await _collect(it)
+
+    assert gate_calls == []
+    types = [e.type for e in events]
+    assert types[-1] == "done"
+    assert events[-1].payload["finish_reason"] != "refusal"
+
+
+@pytest.mark.asyncio
 async def test_tool_loop_dispatches_then_emits_final_with_citations(
     fixtures: dict[str, Any], echo_tool: Any
 ) -> None:

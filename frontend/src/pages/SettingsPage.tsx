@@ -7,6 +7,7 @@ import {
   Languages,
   Maximize2,
   Palette,
+  ShieldOff,
   Sparkles,
   UserCog,
 } from "lucide-react";
@@ -27,11 +28,18 @@ const THEMES: { value: Theme; label: string }[] = [
   { value: "dark", label: "Dark" },
 ];
 
+const TOPIC_GATE_OPTIONS: { value: "on" | "off"; label: string }[] = [
+  { value: "on", label: "On" },
+  { value: "off", label: "Off" },
+];
+
 export function SettingsPage() {
   const theme = usePrefs((s) => s.theme);
   const setTheme = usePrefs((s) => s.setTheme);
   const interfaceSize = usePrefs((s) => s.interfaceSize);
   const setInterfaceSize = usePrefs((s) => s.setInterfaceSize);
+  const disableTopicGate = usePrefs((s) => s.disableTopicGate);
+  const setDisableTopicGate = usePrefs((s) => s.setDisableTopicGate);
 
   return (
     <div className="flex flex-col">
@@ -124,6 +132,22 @@ export function SettingsPage() {
             title="Time zone"
             description="Briefings are generated EOD CET"
             control={<DisabledStub label="Europe/Stockholm" />}
+          />
+        </Section>
+
+        <Section title="Demo">
+          <SettingRow
+            icon={<ShieldOff size={16} aria-hidden="true" />}
+            title="On/off-topic guardrail"
+            description="Demo only. When off, every prompt reaches the model — useful for live walkthroughs that wander outside the company scope."
+            control={
+              <SegmentedControl
+                value={disableTopicGate ? "off" : "on"}
+                options={TOPIC_GATE_OPTIONS}
+                onSelect={(v) => setDisableTopicGate(v === "off")}
+                ariaLabel="On/off-topic guardrail"
+              />
+            }
           />
         </Section>
       </div>

@@ -14,6 +14,7 @@ import {
 import { Button } from "../design/primitives";
 import { useArtifacts } from "../state/artifacts";
 import { useCompanies } from "../state/companies";
+import { usePrefs } from "../state/prefs";
 import { useThreads } from "../state/threads";
 
 import { BriefingCard } from "./BriefingCard";
@@ -39,6 +40,7 @@ export function ConversationPane({ companyId, companyName }: ConversationPanePro
   const setActiveCompanyId = useCompanies((s) => s.setActiveCompanyId);
   const loadArtifactById = useArtifacts((s) => s.loadById);
   const openMobile = useArtifacts((s) => s.openPaneMobile);
+  const disableTopicGate = usePrefs((s) => s.disableTopicGate);
 
   const [pendingUser, setPendingUser] = useState<string | null>(null);
   const [streaming, setStreaming] = useState<ResponseCardData | null>(null);
@@ -91,7 +93,9 @@ export function ConversationPane({ companyId, companyName }: ConversationPanePro
       suggested_followups: [],
     });
     try {
-      const response = await chatApi.postTurn(threadId, text);
+      const response = await chatApi.postTurn(threadId, text, {
+        bypassTopicGate: disableTopicGate,
+      });
       let buffer = "";
       const seenEngineCallIds = new Set<string>();
       const inflightTools = new Map<string, string>();

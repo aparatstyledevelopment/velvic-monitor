@@ -160,6 +160,7 @@ async def post_turn(
         user_message=body.message,
         session=session,
         user=user,
+        bypass_topic_gate=body.bypass_topic_gate,
     )
     return sse_response(iterator)
 
