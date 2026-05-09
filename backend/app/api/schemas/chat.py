@@ -46,6 +46,7 @@ class ChatTurnOut(BaseModel):
     cost_cents: Decimal
     finish_reason: str | None = None
     warning: str | None = None
+    suggested_followups: list[str] = Field(default_factory=list)
     created_at: datetime
 
 

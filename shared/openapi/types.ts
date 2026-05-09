@@ -176,6 +176,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/companies/{company_id}/drivers/data/{source}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Drivers Data */
+        get: operations["drivers_data_api_companies__company_id__drivers_data__source__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/companies/{company_id}/snapshot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Company Snapshot */
+        get: operations["company_snapshot_api_companies__company_id__snapshot_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/engine_calls/{engine_call_id}": {
         parameters: {
             query?: never;
@@ -370,6 +404,8 @@ export interface components {
             prompt_tokens: number;
             /** Role */
             role: string;
+            /** Suggested Followups */
+            suggested_followups?: string[];
             /**
              * Thread Id
              * Format: uuid
@@ -409,6 +445,55 @@ export interface components {
             sector: string | null;
             /** Ticker */
             ticker: string;
+        };
+        /**
+         * CompanySnapshotOut
+         * @description Top-bar payload: identity + latest price/return + provenance.
+         */
+        CompanySnapshotOut: {
+            /** As Of Date */
+            as_of_date: string | null;
+            /** Company Id */
+            company_id: number;
+            /** Market */
+            market: string;
+            /** Name */
+            name: string;
+            /** Price */
+            price: number | null;
+            /** Price Engine Call Id */
+            price_engine_call_id: string | null;
+            /** Return Pct */
+            return_pct: number | null;
+            /** Sector */
+            sector: string | null;
+            /** Ticker */
+            ticker: string;
+        };
+        /**
+         * DriversDataOut
+         * @description One slice of the latest fact-pack snapshot (Drivers ground truth).
+         */
+        DriversDataOut: {
+            /**
+             * As Of Date
+             * Format: date
+             */
+            as_of_date: string;
+            /** Company Id */
+            company_id: number;
+            /** Data */
+            data: {
+                [key: string]: unknown;
+            };
+            /** Description */
+            description: string;
+            /** Engine Call Ids */
+            engine_call_ids: string[];
+            /** Label */
+            label: string;
+            /** Source */
+            source: string;
         };
         /** EngineCallOut */
         EngineCallOut: {
@@ -889,6 +974,73 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EngineCallOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    drivers_data_api_companies__company_id__drivers_data__source__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                company_id: number;
+                source: string;
+            };
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DriversDataOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    company_snapshot_api_companies__company_id__snapshot_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                company_id: number;
+            };
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompanySnapshotOut"];
                 };
             };
             /** @description Validation Error */

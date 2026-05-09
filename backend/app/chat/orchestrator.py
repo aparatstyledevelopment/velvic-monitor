@@ -34,6 +34,7 @@ from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import AppUser, Company, Org, OrgCompanyAccess
+from app.chat import followups as followups_mod
 from app.chat import topic_gate as topic_gate_mod
 from app.chat.citations import find_uncited_numerics, parse_citations
 from app.chat.models import ChatEngineCall, ChatThread, ChatTurn
@@ -68,6 +69,7 @@ class _TurnState:
 
     messages: list[Message]
     engine_call_ids: list[str]
+    tool_names: list[str]
     tool_call_count: int
     prompt_tokens: int
     completion_tokens: int
@@ -164,6 +166,7 @@ async def _drive_turn(
     state = _TurnState(
         messages=history + [Message(role="user", content=user_message)],
         engine_call_ids=[],
+        tool_names=[],
         tool_call_count=0,
         prompt_tokens=0,
         completion_tokens=0,
@@ -259,6 +262,10 @@ async def _drive_turn(
             },
         )
 
+    suggestions = followups_mod.generate(
+        final_text=final_text, tool_names=state.tool_names
+    )
+
     assistant_idx = await _next_idx(session, thread_id)
     assistant_turn = ChatTurn(
         thread_id=thread_id,
@@ -280,6 +287,7 @@ async def _drive_turn(
         cost_cents=Decimal(str(round(state.cost_cents, 4))),
         finish_reason=state.finish_reason,
         warning=warning_code,
+        suggested_followups=suggestions,
     )
     session.add(assistant_turn)
     await session.flush()
@@ -300,6 +308,7 @@ async def _drive_turn(
             "model": state.model,
             "provider": state.provider_name,
             "engine_call_ids": list(dict.fromkeys(state.engine_call_ids)),
+            "suggested_followups": suggestions,
         },
     )
 
@@ -335,6 +344,7 @@ async def _execute_tool_call(
         return
 
     state.engine_call_ids.append(result.engine_call_id)
+    state.tool_names.append(call.name)
     state.messages.append(
         Message(
             role="tool",
@@ -382,6 +392,7 @@ async def _persist_and_emit_refusal(
             "model": "",
             "provider": "",
             "engine_call_ids": [],
+            "suggested_followups": [],
         },
     )
 

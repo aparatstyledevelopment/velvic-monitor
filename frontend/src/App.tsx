@@ -5,8 +5,10 @@ import { authApi } from "./api/auth";
 import { ApiError } from "./api/client";
 import { LoginPage } from "./auth/LoginPage";
 import { SignupPage } from "./auth/SignupPage";
-import { AppShell } from "./layout/AppShell";
+import { AppShell, TakeoverLayout } from "./layout/AppShell";
+import { DriversDataView } from "./modules/drivers/DriversDataView";
 import { DriversModule } from "./modules/drivers/DriversModule";
+import { SettingsPage } from "./pages/SettingsPage";
 import { useAuth } from "./state/auth";
 
 export function App() {
@@ -57,14 +59,25 @@ export function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
-      <Route
-        path="/"
-        element={
-          <AppShell>
-            <DriversModule />
-          </AppShell>
-        }
-      />
+      <Route element={<AppShell />}>
+        <Route index element={<DriversModule />} />
+        <Route
+          path="settings"
+          element={
+            <TakeoverLayout>
+              <SettingsPage />
+            </TakeoverLayout>
+          }
+        />
+        <Route
+          path="drivers/data/:source"
+          element={
+            <TakeoverLayout>
+              <DriversDataView />
+            </TakeoverLayout>
+          }
+        />
+      </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

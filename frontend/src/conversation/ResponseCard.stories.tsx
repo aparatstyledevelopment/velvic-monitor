@@ -13,6 +13,7 @@ const base: ResponseCardData = {
   warning: null,
   streaming: false,
   runningTool: null,
+  suggested_followups: [],
 };
 
 function Frame({ children }: { children: React.ReactNode }) {
@@ -79,6 +80,26 @@ export const Warning: Story = () => (
         ...base,
         text: "VOLV-B is down 2.1% on the day.",
         warning: "uncited_numeric",
+      }}
+    />
+  </Frame>
+);
+
+export const WithFollowups: Story = () => (
+  <Frame>
+    <ResponseCard
+      data={{
+        ...base,
+        text: "VOLV-B is down 2.1% on the day, vs an OMX Stockholm PI return of +0.4%.",
+        citation_spans: [
+          { start_char: 14, end_char: 18, engine_call_id: "ec_a" },
+        ],
+        finish_reason: "stop",
+        suggested_followups: [
+          "Did peers move similarly today?",
+          "Show me the 30-day price trend",
+          "Any MAR-flagged news in the last 30 days?",
+        ],
       }}
     />
   </Frame>

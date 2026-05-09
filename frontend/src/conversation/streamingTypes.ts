@@ -25,5 +25,6 @@ export type CompletionEvent =
       model: string;
       provider: string;
       engine_call_ids: string[];
+      suggested_followups?: string[];
     }
   | { type: "error"; message: string };

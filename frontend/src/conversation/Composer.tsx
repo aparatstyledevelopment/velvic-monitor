@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { ArrowUp, Sparkles } from "lucide-react";
+import { useEffect, useRef } from "react";
 
-import { Button } from "../design/primitives";
+import { useComposer } from "../state/composer";
 
 import {
   autocompleteCandidates,
@@ -18,9 +19,11 @@ interface ComposerProps {
 export function Composer({
   disabled = false,
   onSubmit,
-  placeholder = "Ask why a number moved…",
+  placeholder = "Ask anything about this company…",
 }: ComposerProps) {
-  const [value, setValue] = useState("");
+  const value = useComposer((s) => s.draft);
+  const setValue = useComposer((s) => s.setDraft);
+  const clear = useComposer((s) => s.clear);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const candidates = autocompleteCandidates(value);
@@ -55,7 +58,7 @@ export function Composer({
     const parsed = parseInput(value);
     if (parsed.kind === "message" && parsed.text.length === 0) return;
     onSubmit(parsed);
-    setValue("");
+    clear();
   }
 
   function applyCandidate(c: SlashRegistryEntry) {
@@ -76,20 +79,29 @@ export function Composer({
     }
   }
 
+  const hasText = value.trim().length > 0;
+  const sendDisabled = disabled || !hasText;
+
   return (
     <div className="border-t border-border bg-surface">
-      <div className="mx-auto max-w-[720px] w-full px-lg py-md">
+      <div className="mx-auto max-w-[760px] w-full px-lg py-md">
         <form
           onSubmit={(e) => {
             e.preventDefault();
             submit();
           }}
-          className="relative flex flex-col gap-sm"
+          className="relative"
         >
           {candidates.length > 0 && (
             <SlashAutocomplete candidates={candidates} onPick={applyCandidate} />
           )}
-          <div className="flex items-end gap-sm rounded-md border border-border bg-surface focus-within:border-text-primary transition-[border-color] duration-fast">
+          <div className="flex items-end gap-sm rounded-pill border border-border bg-surface focus-within:border-text-primary transition-[border-color] duration-fast pl-md pr-xs py-2xs">
+            <span
+              aria-hidden="true"
+              className="self-center text-text-tertiary shrink-0"
+            >
+              <Sparkles size={16} />
+            </span>
             <textarea
               ref={textareaRef}
               rows={1}
@@ -98,20 +110,26 @@ export function Composer({
               onChange={(e) => setValue(e.target.value)}
               onKeyDown={onKeyDown}
               placeholder={placeholder}
-              className="flex-1 resize-none bg-transparent px-md py-sm t-body placeholder:text-text-tertiary focus:outline-none"
+              className="flex-1 resize-none bg-transparent px-xs py-2xs t-body placeholder:text-text-tertiary focus:outline-none max-h-[200px]"
               aria-label="Message composer"
             />
-            <div className="p-xs">
-              <Button
-                type="submit"
-                size="sm"
-                disabled={disabled || value.trim().length === 0}
-              >
-                Send
-              </Button>
-            </div>
+            <button
+              type="submit"
+              disabled={sendDisabled}
+              aria-label="Send message"
+              className={[
+                "shrink-0 inline-flex items-center justify-center rounded-pill",
+                "h-8 w-8 transition-[opacity,background-color] duration-fast",
+                "focus:outline-none focus-visible:ring-2 focus-visible:ring-text-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface",
+                sendDisabled
+                  ? "bg-surface-muted text-text-quaternary cursor-not-allowed"
+                  : "bg-surface-inverted text-surface hover:opacity-90",
+              ].join(" ")}
+            >
+              <ArrowUp size={16} aria-hidden="true" />
+            </button>
           </div>
-          <p className="t-meta">
+          <p className="t-meta mt-sm">
             Enter to send · Shift+Enter for newline · / for commands
           </p>
         </form>
@@ -131,7 +149,7 @@ function SlashAutocomplete({
     <div
       role="listbox"
       aria-label="Slash commands"
-      className="absolute bottom-full mb-xs w-full rounded-md border border-border bg-surface shadow-md"
+      className="absolute bottom-full mb-xs w-full rounded-md border border-border bg-surface shadow-sm overflow-hidden"
     >
       {candidates.map((c) => (
         <button
@@ -140,7 +158,7 @@ function SlashAutocomplete({
           role="option"
           aria-selected="false"
           onClick={() => onPick(c)}
-          className="flex w-full items-center justify-between gap-md px-md py-sm hover:bg-track text-left"
+          className="flex w-full items-center justify-between gap-md px-md py-sm hover:bg-surface-muted text-left"
         >
           <span className="t-mono text-[13px]">{c.label}</span>
           <span className="t-small text-text-tertiary truncate">{c.description}</span>

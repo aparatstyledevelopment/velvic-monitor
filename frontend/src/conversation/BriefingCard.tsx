@@ -1,10 +1,11 @@
-import type { ReactNode } from "react";
-import { useState } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
+import { useState, type ReactNode } from "react";
 
 import type { BriefingOut } from "../api/briefings";
-import { Card, IconButton, Pill } from "../design/primitives";
-import { useArtifacts } from "../state/artifacts";
 import { engineCallsApi } from "../api/engineCalls";
+import { Card, PillButton } from "../design/primitives";
+import { useArtifacts } from "../state/artifacts";
+import { useComposer } from "../state/composer";
 
 import { renderWithCitations } from "./citationRenderer";
 
@@ -17,6 +18,7 @@ export function BriefingCard({ briefing, companyName }: BriefingCardProps) {
   const [collapsed, setCollapsed] = useState(false);
   const push = useArtifacts((s) => s.push);
   const openMobile = useArtifacts((s) => s.openPaneMobile);
+  const setDraft = useComposer((s) => s.setDraft);
 
   async function onCite(engineCallId: string) {
     const envelope = await engineCallsApi.get(engineCallId);
@@ -24,20 +26,31 @@ export function BriefingCard({ briefing, companyName }: BriefingCardProps) {
     openMobile();
   }
 
+  async function openPrimarySource() {
+    const id = briefing.engine_call_ids[0];
+    if (id === undefined) return;
+    await onCite(id);
+  }
+
+  const title = formatBriefingTitle(briefing.as_of_date);
+
   const header = (
     <BriefingHeader
-      companyName={companyName}
+      title={title}
       asOfDate={briefing.as_of_date}
-      sourceCount={briefing.engine_call_ids.length}
+      hasSource={briefing.engine_call_ids.length > 0}
       collapsed={collapsed}
       onToggle={() => setCollapsed((c) => !c)}
+      onOpenSource={openPrimarySource}
     />
   );
+
+  void companyName;
 
   return (
     <Card header={header}>
       {!collapsed && (
-        <div className="flex flex-col gap-md">
+        <div className="flex flex-col gap-lg">
           <p className="t-body whitespace-pre-wrap">
             {renderWithCitations({
               text: briefing.narrative,
@@ -45,10 +58,17 @@ export function BriefingCard({ briefing, companyName }: BriefingCardProps) {
               onCite,
             })}
           </p>
+
           {briefing.smart_chips.length > 0 && (
-            <div className="flex flex-wrap gap-xs">
+            <div className="flex flex-wrap gap-xs pt-xs">
               {briefing.smart_chips.map((chip, i) => (
-                <Pill key={i}>{chip}</Pill>
+                <PillButton
+                  key={i}
+                  onClick={() => setDraft(chip)}
+                  aria-label={`Use suggestion: ${chip}`}
+                >
+                  {chip}
+                </PillButton>
               ))}
             </div>
           )}
@@ -59,32 +79,58 @@ export function BriefingCard({ briefing, companyName }: BriefingCardProps) {
 }
 
 interface BriefingHeaderProps {
-  companyName: string;
+  title: string;
   asOfDate: string;
-  sourceCount: number;
+  hasSource: boolean;
   collapsed: boolean;
   onToggle: () => void;
+  onOpenSource: () => void;
 }
 
 function BriefingHeader({
-  companyName,
+  title,
   asOfDate,
-  sourceCount,
+  hasSource,
   collapsed,
   onToggle,
+  onOpenSource,
 }: BriefingHeaderProps): ReactNode {
   return (
     <>
-      <div className="flex items-center gap-sm min-w-0">
-        <span className="t-section truncate">{companyName} · Drivers · {asOfDate}</span>
-        <Pill>{sourceCount} sources</Pill>
+      <div className="flex flex-col min-w-0 gap-xxs">
+        <span className="t-section truncate">{title}</span>
+        <span className="t-meta">Generated · {asOfDate}</span>
       </div>
-      <IconButton
-        label={collapsed ? "Expand briefing" : "Collapse briefing"}
-        onClick={onToggle}
-      >
-        <span aria-hidden="true">{collapsed ? "▾" : "▴"}</span>
-      </IconButton>
+      <div className="flex items-center gap-sm shrink-0">
+        {hasSource && (
+          <PillButton tone="inverse" onClick={onOpenSource}>
+            Source
+          </PillButton>
+        )}
+        <PillButton onClick={onToggle} aria-expanded={!collapsed}>
+          {collapsed ? (
+            <>
+              <ChevronDown size={12} aria-hidden="true" />
+              Expand
+            </>
+          ) : (
+            <>
+              <ChevronUp size={12} aria-hidden="true" />
+              Collapse
+            </>
+          )}
+        </PillButton>
+      </div>
     </>
   );
+}
+
+function formatBriefingTitle(asOfDateStr: string): string {
+  const parsed = new Date(asOfDateStr + "T00:00:00Z");
+  if (Number.isNaN(parsed.getTime())) return "Morning Briefing";
+  const weekday = parsed.toLocaleDateString("en-US", {
+    weekday: "long",
+    timeZone: "UTC",
+  });
+  return `${weekday} Morning Briefing`;
 }

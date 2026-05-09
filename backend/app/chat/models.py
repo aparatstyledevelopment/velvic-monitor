@@ -6,6 +6,7 @@ from typing import Any
 from uuid import UUID
 
 from sqlalchemy import (
+    ARRAY,
     BigInteger,
     Boolean,
     CheckConstraint,
@@ -96,6 +97,9 @@ class ChatTurn(Base):
     )
     finish_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     warning: Mapped[str | None] = mapped_column(Text, nullable=True)
+    suggested_followups: Mapped[list[str] | None] = mapped_column(
+        ARRAY(Text), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=text("now()")
     )

@@ -1,16 +1,24 @@
 import { useQuery } from "@tanstack/react-query";
+import { LayoutGrid } from "lucide-react";
 import { useEffect, useRef } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import { companiesApi } from "../api/companies";
-import { Hairline } from "../design/primitives";
+import { Hairline, IconButton, SidebarNavItem } from "../design/primitives";
 import { useCompanies } from "../state/companies";
+import { useQuickActions } from "../state/quickActions";
 import { useThreads } from "../state/threads";
 
 import { CompanySwitcher } from "./CompanySwitcher";
+import { MODULES } from "./modules";
 import { SidebarThreadList } from "./SidebarThreadList";
 import { UserMenu } from "./UserMenu";
 
 export function Sidebar() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const toggleQuickActions = useQuickActions((s) => s.toggle);
+
   const { data: companies = [] } = useQuery({
     queryKey: ["companies"],
     queryFn: companiesApi.list,
@@ -42,10 +50,11 @@ export function Sidebar() {
       className="hidden lg:flex w-[220px] shrink-0 flex-col border-r border-border bg-surface"
       aria-label="Primary navigation"
     >
-      <div className="px-lg pt-lg pb-md">
-        <span className="t-section">Velvic</span>
+      <div className="px-lg pt-lg pb-2xs">
+        <span className="t-section">Velvic Monitor</span>
+        <span className="t-meta block mt-xs">Monitor</span>
       </div>
-      <div className="px-sm pb-md">
+      <div className="px-sm pb-md pt-md">
         <CompanySwitcher
           companies={companies}
           activeCompanyId={activeCompanyId}
@@ -53,28 +62,50 @@ export function Sidebar() {
         />
       </div>
       <Hairline />
-      <nav className="flex-1 py-md overflow-y-auto" aria-label="Module navigation">
-        <div className="px-sm pb-md">
-          <SidebarItem label="Drivers" active />
+      <nav
+        className="flex-1 px-sm pt-md pb-md overflow-y-auto flex flex-col gap-xxs"
+        aria-label="Modules"
+      >
+        {MODULES.map((m) => {
+          const isActive =
+            m.enabled &&
+            (m.route === "/"
+              ? location.pathname === "/"
+              : location.pathname.startsWith(m.route));
+          const trailing =
+            m.enabled && isActive ? (
+              <IconButton
+                label="Open quick actions"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleQuickActions();
+                }}
+              >
+                <LayoutGrid size={14} aria-hidden="true" />
+              </IconButton>
+            ) : undefined;
+          return (
+            <SidebarNavItem
+              key={m.key}
+              icon={<m.icon size={14} />}
+              label={m.label}
+              active={isActive}
+              soon={!m.enabled}
+              trailing={trailing}
+              onClick={() => {
+                if (m.enabled) navigate(m.route);
+              }}
+            />
+          );
+        })}
+        <div className="mt-md">
+          <SidebarThreadList />
         </div>
-        <SidebarThreadList />
       </nav>
       <Hairline />
       <div className="p-sm">
         <UserMenu />
       </div>
     </aside>
-  );
-}
-
-function SidebarItem({ label, active = false }: { label: string; active?: boolean }) {
-  const cls = [
-    "block w-full text-left px-md py-sm rounded-md t-body",
-    active ? "bg-track text-text-primary" : "text-text-secondary hover:bg-track",
-  ].join(" ");
-  return (
-    <button type="button" className={cls}>
-      {label}
-    </button>
   );
 }

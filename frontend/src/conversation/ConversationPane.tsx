@@ -89,6 +89,7 @@ export function ConversationPane({ companyId, companyName }: ConversationPanePro
       warning: null,
       streaming: true,
       runningTool: null,
+      suggested_followups: [],
     });
     try {
       const response = await chatApi.postTurn(threadId, text);
@@ -133,7 +134,12 @@ export function ConversationPane({ companyId, companyName }: ConversationPanePro
           setStreaming((prev) =>
             prev === null
               ? prev
-              : { ...prev, streaming: false, finish_reason: ev.finish_reason },
+              : {
+                  ...prev,
+                  streaming: false,
+                  finish_reason: ev.finish_reason,
+                  suggested_followups: ev.suggested_followups ?? [],
+                },
           );
         } else if (ev.type === "error") {
           setStreaming((prev) =>

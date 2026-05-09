@@ -48,3 +48,11 @@ def test_phase3_routes_registered() -> None:
     paths = spec.get("paths", {})
     assert "/api/me/companies" in paths
     assert "/api/engine_calls/{engine_call_id}" in paths
+
+
+def test_phase3_drivers_routes_registered() -> None:
+    client = TestClient(create_app())
+    spec = client.get("/api/openapi.json").json()
+    paths = spec.get("paths", {})
+    assert "/api/companies/{company_id}/snapshot" in paths
+    assert "/api/companies/{company_id}/drivers/data/{source}" in paths

@@ -19,6 +19,7 @@ const base: ResponseCardData = {
   warning: null,
   streaming: false,
   runningTool: null,
+  suggested_followups: [],
 };
 
 describe("ResponseCard", () => {
@@ -76,5 +77,34 @@ describe("ResponseCard", () => {
       />,
     );
     expect(screen.getByLabelText("Open evidence 1")).toBeInTheDocument();
+  });
+
+  it("renders interactive follow-up chips when present and not streaming", () => {
+    render(
+      <H
+        data={{
+          ...base,
+          text: "Hi.",
+          suggested_followups: ["Did peers move similarly today?"],
+        }}
+      />,
+    );
+    expect(
+      screen.getByLabelText("Use follow-up: Did peers move similarly today?"),
+    ).toBeInTheDocument();
+  });
+
+  it("hides follow-up chips while streaming", () => {
+    render(
+      <H
+        data={{
+          ...base,
+          text: "Hi.",
+          streaming: true,
+          suggested_followups: ["Should not show"],
+        }}
+      />,
+    );
+    expect(screen.queryByText("Should not show")).not.toBeInTheDocument();
   });
 });

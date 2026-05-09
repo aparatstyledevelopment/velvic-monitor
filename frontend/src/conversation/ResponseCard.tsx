@@ -1,7 +1,8 @@
 import type { ChatTurnOut } from "../api/chat";
 import { engineCallsApi } from "../api/engineCalls";
-import { Card, Pill } from "../design/primitives";
+import { Card, Pill, PillButton } from "../design/primitives";
 import { useArtifacts } from "../state/artifacts";
+import { useComposer } from "../state/composer";
 
 import { renderWithCitations, type CitationSpan } from "./citationRenderer";
 
@@ -12,6 +13,7 @@ export interface ResponseCardData {
   warning: string | null;
   streaming: boolean;
   runningTool: string | null;
+  suggested_followups: readonly string[];
 }
 
 export function responseCardFromTurn(turn: ChatTurnOut): ResponseCardData {
@@ -22,6 +24,7 @@ export function responseCardFromTurn(turn: ChatTurnOut): ResponseCardData {
     warning: turn.warning ?? null,
     streaming: false,
     runningTool: null,
+    suggested_followups: turn.suggested_followups ?? [],
   };
 }
 
@@ -32,6 +35,7 @@ interface ResponseCardProps {
 export function ResponseCard({ data }: ResponseCardProps) {
   const push = useArtifacts((s) => s.push);
   const openMobile = useArtifacts((s) => s.openPaneMobile);
+  const setDraft = useComposer((s) => s.setDraft);
   const isRefusal = data.finish_reason === "refusal";
 
   async function onCite(engineCallId: string) {
@@ -40,16 +44,40 @@ export function ResponseCard({ data }: ResponseCardProps) {
     openMobile();
   }
 
-  const header = isRefusal ? (
-    <span className="t-meta">Off-topic</span>
-  ) : data.streaming ? (
-    <span className="t-meta flex items-center gap-sm">
-      <TypingIndicator />
-      {data.runningTool !== null && (
-        <Pill className="t-mono">engine: {data.runningTool}</Pill>
-      )}
-    </span>
-  ) : null;
+  async function onOpenPrimarySource() {
+    const first = data.citation_spans[0]?.engine_call_id;
+    if (first === undefined) return;
+    await onCite(first);
+  }
+
+  const hasCitations = data.citation_spans.length > 0;
+
+  const header =
+    isRefusal || data.streaming || hasCitations ? (
+      <>
+        <span className="t-meta flex items-center gap-sm">
+          {isRefusal ? (
+            "Off-topic"
+          ) : data.streaming ? (
+            <>
+              <TypingIndicator />
+              {data.runningTool !== null && (
+                <Pill tone="muted" className="t-mono">
+                  engine: {data.runningTool}
+                </Pill>
+              )}
+            </>
+          ) : (
+            "Assistant"
+          )}
+        </span>
+        {hasCitations && !data.streaming && (
+          <PillButton tone="inverse" onClick={onOpenPrimarySource}>
+            Source
+          </PillButton>
+        )}
+      </>
+    ) : null;
 
   const bodyClasses = isRefusal
     ? "t-body italic text-text-secondary whitespace-pre-wrap"
@@ -69,6 +97,21 @@ export function ResponseCard({ data }: ResponseCardProps) {
         </p>
       )}
       {data.warning !== null && <WarningRow warning={data.warning} />}
+      {!data.streaming &&
+        !isRefusal &&
+        data.suggested_followups.length > 0 && (
+          <div className="mt-md flex flex-wrap gap-xs pt-md border-t border-border">
+            {data.suggested_followups.map((s, i) => (
+              <PillButton
+                key={i}
+                onClick={() => setDraft(s)}
+                aria-label={`Use follow-up: ${s}`}
+              >
+                {s}
+              </PillButton>
+            ))}
+          </div>
+        )}
     </Card>
   );
 }
