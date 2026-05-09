@@ -6,6 +6,7 @@ import { Card, PillButton } from "../design/primitives";
 import { useArtifacts } from "../state/artifacts";
 import { useComposer } from "../state/composer";
 
+import { chipTitle } from "./chipTitle";
 import { renderWithCitations } from "./citationRenderer";
 
 interface BriefingCardProps {
@@ -64,8 +65,9 @@ export function BriefingCard({ briefing, companyName }: BriefingCardProps) {
                   key={i}
                   onClick={() => setDraft(chip)}
                   aria-label={`Use suggestion: ${chip}`}
+                  title={chip}
                 >
-                  {chip}
+                  {chipTitle(chip)}
                 </PillButton>
               ))}
             </div>
@@ -102,7 +104,7 @@ function BriefingHeader({
       <div className="flex items-center gap-sm shrink-0">
         {hasSource && (
           <PillButton tone="inverse" onClick={onOpenSource}>
-            Full briefing
+            Source
           </PillButton>
         )}
         <PillButton onClick={onToggle} aria-expanded={!collapsed}>

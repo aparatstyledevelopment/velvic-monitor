@@ -1,7 +1,15 @@
 import type { EngineCallEnvelope } from "../state/artifacts";
-import { Card, Pill } from "../design/primitives";
+import { Hairline } from "../design/primitives";
 
-import { GenericTable } from "./renderers/GenericTable";
+import {
+  describeArtifact,
+  inspectResponse,
+  renderFunctionCall,
+  toolMeta,
+} from "./format";
+import { CodeBlock } from "./renderers/CodeBlock";
+import { FieldList } from "./renderers/FieldList";
+import { RecordsTable } from "./renderers/RecordsTable";
 import { SourceRefList } from "./renderers/SourceRefList";
 
 interface ArtifactCardProps {
@@ -9,52 +17,131 @@ interface ArtifactCardProps {
 }
 
 export function ArtifactCard({ envelope }: ArtifactCardProps) {
-  const shortId = envelope.engine_call_id.slice(-8);
+  const meta = toolMeta(envelope.tool_name);
+  const description = describeArtifact(envelope);
+  const response = inspectResponse(envelope);
+  const isAdHocSql = response.kind === "sql";
+  const queryTitle = isAdHocSql ? "SQL" : "Query";
+  const responseRowCount = rowCount(response);
 
   return (
-    <Card
-      header={
-        <>
-          <div className="flex items-center gap-sm min-w-0">
-            <Pill>{envelope.tool_name}</Pill>
-            <span className="t-mono text-xs text-text-tertiary truncate">
-              {shortId}
-            </span>
-          </div>
-        </>
-      }
-      footer={
-        <span className="flex items-center gap-md text-text-tertiary">
-          <span>{envelope.latency_ms}ms</span>
-          <span>{envelope.engine_version}</span>
-          <span className="ml-auto">{formatTimestamp(envelope.computed_at)}</span>
-        </span>
-      }
+    <article
+      className="flex flex-col rounded-lg border border-border bg-surface px-xl py-lg gap-lg"
+      aria-label={meta.title}
     >
-      <Section title="Params">
-        <GenericTable data={envelope.params} />
+      <header className="flex flex-col gap-2xs">
+        <h3 className="t-title text-2xl">{meta.title}</h3>
+        <p className="t-small text-text-tertiary">
+          Source data view · {meta.category}
+          {envelope.module !== meta.category.toLowerCase() && (
+            <> → {humaniseModule(envelope.module)}</>
+          )}
+        </p>
+      </header>
+
+      {description !== null && (
+        <>
+          <Hairline />
+          <p className="t-body">{description}</p>
+        </>
+      )}
+
+      <Section title={queryTitle}>
+        {isAdHocSql ? (
+          <CodeBlock ariaLabel="SQL query">{response.sql}</CodeBlock>
+        ) : (
+          <CodeBlock ariaLabel="Engine call">
+            {renderFunctionCall(envelope.tool_name, envelope.params)}
+          </CodeBlock>
+        )}
       </Section>
-      <Section title="Result">
-        <GenericTable data={envelope.data} />
+
+      <Section
+        title="Response"
+        {...(responseRowCount === null
+          ? {}
+          : {
+              meta: `${responseRowCount} row${responseRowCount === 1 ? "" : "s"}`,
+            })}
+      >
+        <ResponseBody envelope={envelope} />
       </Section>
-      <Section title="Sources">
-        <SourceRefList sources={envelope.sources as Record<string, unknown>[]} />
-      </Section>
-    </Card>
+
+      {envelope.sources.length > 0 && (
+        <Section title="Sources">
+          <SourceRefList
+            sources={envelope.sources as Record<string, unknown>[]}
+          />
+        </Section>
+      )}
+    </article>
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  meta,
+  children,
+}: {
+  title: string;
+  meta?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="mb-md last:mb-0">
-      <div className="t-meta mb-xs">{title}</div>
+    <section aria-label={title} className="flex flex-col gap-sm">
+      <header className="flex items-baseline justify-between gap-sm">
+        <span className="t-meta">{title}</span>
+        {meta !== undefined && (
+          <span className="t-meta normal-case tracking-normal text-text-tertiary">
+            {meta}
+          </span>
+        )}
+      </header>
       {children}
-    </div>
+    </section>
   );
 }
 
-function formatTimestamp(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toISOString().slice(0, 16).replace("T", " ");
+function ResponseBody({ envelope }: { envelope: EngineCallEnvelope }) {
+  const response = inspectResponse(envelope);
+  switch (response.kind) {
+    case "sql":
+      return (
+        <RecordsTable
+          columns={response.columns}
+          rows={[]}
+          arrayRows={response.rows as unknown[][]}
+        />
+      );
+    case "records":
+      return (
+        <div className="flex flex-col gap-md">
+          {response.scalars.length > 0 && (
+            <FieldList entries={response.scalars} />
+          )}
+          <RecordsTable columns={response.columns} rows={response.rows} />
+        </div>
+      );
+    case "fields":
+      return <FieldList entries={response.scalars} />;
+    case "json":
+      return (
+        <pre className="t-mono text-sm leading-relaxed whitespace-pre-wrap rounded-md border border-border bg-surface-muted px-lg py-md overflow-x-auto">
+          {JSON.stringify(response.raw, null, 2)}
+        </pre>
+      );
+  }
+}
+
+function rowCount(
+  response: ReturnType<typeof inspectResponse>,
+): number | null {
+  if (response.kind === "sql") return response.rows.length;
+  if (response.kind === "records") return response.rows.length;
+  return null;
+}
+
+function humaniseModule(m: string): string {
+  if (m.length === 0) return m;
+  return m.charAt(0).toUpperCase() + m.slice(1);
 }

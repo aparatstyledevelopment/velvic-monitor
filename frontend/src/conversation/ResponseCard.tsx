@@ -3,6 +3,7 @@ import { Card, Pill, PillButton } from "../design/primitives";
 import { useArtifacts } from "../state/artifacts";
 import { useComposer } from "../state/composer";
 
+import { chipTitle } from "./chipTitle";
 import { renderWithCitations, type CitationSpan } from "./citationRenderer";
 
 export interface ResponseCardData {
@@ -104,8 +105,9 @@ export function ResponseCard({ data }: ResponseCardProps) {
                 key={i}
                 onClick={() => setDraft(s)}
                 aria-label={`Use follow-up: ${s}`}
+                title={s}
               >
-                {s}
+                {chipTitle(s)}
               </PillButton>
             ))}
           </div>
