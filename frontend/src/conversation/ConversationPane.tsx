@@ -175,7 +175,7 @@ export function ConversationPane({ companyId, companyName }: ConversationPanePro
         </IconButton>
       </header>
       <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-[720px] w-full px-lg py-xl flex flex-col gap-lg">
+        <div className="mx-auto max-w-[760px] w-full px-xl py-2xl flex flex-col gap-xl">
           <BriefingSection
             briefing={briefingQ.data}
             companyName={companyName}

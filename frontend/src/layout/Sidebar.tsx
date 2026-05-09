@@ -50,11 +50,11 @@ export function Sidebar() {
       className="hidden lg:flex w-[220px] shrink-0 flex-col border-r border-border bg-surface"
       aria-label="Primary navigation"
     >
-      <div className="px-lg pt-lg pb-2xs">
+      <div className="px-lg pt-xl pb-md">
         <span className="t-section">Velvic Monitor</span>
         <span className="t-meta block mt-xs">Monitor</span>
       </div>
-      <div className="px-sm pb-md pt-md">
+      <div className="px-sm pb-lg pt-md">
         <CompanySwitcher
           companies={companies}
           activeCompanyId={activeCompanyId}

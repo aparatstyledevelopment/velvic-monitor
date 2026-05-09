@@ -7,10 +7,10 @@ import { IconButton } from "../design/primitives";
 import { useArtifacts } from "../state/artifacts";
 import { useCompanies } from "../state/companies";
 
-const FALLBACK = { name: "—", ticker: "—", market: "—" } as const;
+const FALLBACK = { ticker: "—", market: "" } as const;
 
-function formatPrice(p: number | null | undefined): string {
-  if (p === null || p === undefined) return "—";
+function formatPrice(p: number | null | undefined): string | null {
+  if (p === null || p === undefined) return null;
   return p.toLocaleString("sv-SE", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
@@ -19,9 +19,9 @@ function formatPrice(p: number | null | undefined): string {
 
 function formatReturn(r: number | null | undefined): {
   text: string;
-  tone: "positive" | "negative" | "neutral";
-} {
-  if (r === null || r === undefined) return { text: "—", tone: "neutral" };
+  tone: "positive" | "negative";
+} | null {
+  if (r === null || r === undefined) return null;
   const sign = r >= 0 ? "▲" : "▼";
   const tone = r >= 0 ? "positive" : "negative";
   const formatted = Math.abs(r).toLocaleString("sv-SE", {
@@ -29,6 +29,16 @@ function formatReturn(r: number | null | undefined): {
     maximumFractionDigits: 2,
   });
   return { text: `${sign} ${formatted}%`, tone };
+}
+
+const MARKET_LABELS: Record<string, string> = {
+  XSTO: "Nasdaq Stockholm",
+  FNSE: "Nasdaq First North Stockholm",
+  FNGM: "Nasdaq First North Growth Market",
+};
+
+function formatMarket(market: string): string {
+  return MARKET_LABELS[market] ?? market;
 }
 
 export function TopBar() {
@@ -44,8 +54,7 @@ export function TopBar() {
   });
 
   const ticker = data?.ticker ?? FALLBACK.ticker;
-  const name = data?.name ?? FALLBACK.name;
-  const market = data?.market ?? FALLBACK.market;
+  const market = data?.market !== undefined ? formatMarket(data.market) : FALLBACK.market;
   const price = formatPrice(data?.price);
   const ret = formatReturn(data?.return_pct);
   const priceCallId = data?.price_engine_call_id ?? null;
@@ -61,11 +70,11 @@ export function TopBar() {
   }
 
   const toneClass =
-    ret.tone === "positive"
-      ? "text-signal-positive"
-      : ret.tone === "negative"
-        ? "text-signal-negative"
-        : "text-text-tertiary";
+    ret === null
+      ? ""
+      : ret.tone === "positive"
+        ? "text-signal-positive"
+        : "text-signal-negative";
 
   return (
     <header
@@ -86,19 +95,30 @@ export function TopBar() {
         >
           {ticker}
         </button>
-        <span aria-hidden="true" className="text-text-quaternary">
-          ·
-        </span>
-        <span className="t-numeric text-[15px] truncate">{price} SEK</span>
-        <span className={["t-numeric text-[14px] shrink-0", toneClass].join(" ")}>
-          {ret.text}
-        </span>
-        <span aria-hidden="true" className="text-text-quaternary hidden md:inline">
-          ·
-        </span>
-        <span className="t-small text-text-tertiary truncate hidden md:inline">
-          {name === FALLBACK.name ? market : market}
-        </span>
+        {price !== null && (
+          <>
+            <Separator />
+            <span className="t-numeric text-[15px] truncate">{price} SEK</span>
+          </>
+        )}
+        {ret !== null && (
+          <span
+            className={[
+              "t-numeric text-[14px] shrink-0",
+              toneClass,
+            ].join(" ")}
+          >
+            {ret.text}
+          </span>
+        )}
+        {market !== "" && (
+          <>
+            <Separator />
+            <span className="t-small text-text-tertiary truncate hidden md:inline">
+              {market}
+            </span>
+          </>
+        )}
       </div>
 
       <div className="hidden md:flex items-center gap-sm">
@@ -108,6 +128,14 @@ export function TopBar() {
         </IconButton>
       </div>
     </header>
+  );
+}
+
+function Separator() {
+  return (
+    <span aria-hidden="true" className="text-text-quaternary">
+      ·
+    </span>
   );
 }
 

@@ -104,7 +104,7 @@ function BriefingHeader({
       <div className="flex items-center gap-sm shrink-0">
         {hasSource && (
           <PillButton tone="inverse" onClick={onOpenSource}>
-            Source
+            Full briefing
           </PillButton>
         )}
         <PillButton onClick={onToggle} aria-expanded={!collapsed}>

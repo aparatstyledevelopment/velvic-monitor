@@ -83,8 +83,8 @@ export function Composer({
   const sendDisabled = disabled || !hasText;
 
   return (
-    <div className="border-t border-border bg-surface">
-      <div className="mx-auto max-w-[760px] w-full px-lg py-md">
+    <div className="bg-surface">
+      <div className="mx-auto max-w-[760px] w-full px-xl pt-md pb-xl">
         <form
           onSubmit={(e) => {
             e.preventDefault();
