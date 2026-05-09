@@ -44,16 +44,21 @@
   --space-4xl: 64px;
   --space-5xl: 96px;
 
+  /* Interface-size scale. `data-size` on the root element selects which
+     ratio multiplies typography + control heights; layout widths and
+     spacing stay fixed so the editorial grid is preserved across sizes. */
+  --ui-scale: 1;
+
   /* Control heights — discrete sizes for inline UI (pills, buttons, rows).
      Keep in sync with width counterparts for square controls. */
-  --control-height-sm: 28px;
-  --control-height-md: 32px;
-  --control-height-lg: 36px;
-  --control-height-xl: 40px;
-  --bar-height: 56px;
+  --control-height-sm: calc(28px * var(--ui-scale));
+  --control-height-md: calc(32px * var(--ui-scale));
+  --control-height-lg: calc(36px * var(--ui-scale));
+  --control-height-xl: calc(40px * var(--ui-scale));
+  --bar-height: calc(56px * var(--ui-scale));
 
-  --avatar-sm: 24px;
-  --avatar-md: 32px;
+  --avatar-sm: calc(24px * var(--ui-scale));
+  --avatar-md: calc(32px * var(--ui-scale));
 
   /* Layout widths — surfaces that hold structured navigation/content. */
   --sidebar-width: 224px;
@@ -61,17 +66,18 @@
   --artifact-pane-width-xl: 440px;
   --search-width: 288px;
   --reading-column: 760px;
+  --auth-form-width: 360px;
 
   /* Type scale — single source of truth for font sizes. */
-  --font-size-2xs: 10px;
-  --font-size-xs: 11px;
-  --font-size-sm: 12px;
-  --font-size-md: 13px;
-  --font-size-base: 14px;
-  --font-size-lg: 15px;
-  --font-size-xl: 16px;
-  --font-size-2xl: 22px;
-  --font-size-3xl: 28px;
+  --font-size-2xs: calc(10px * var(--ui-scale));
+  --font-size-xs: calc(11px * var(--ui-scale));
+  --font-size-sm: calc(12px * var(--ui-scale));
+  --font-size-md: calc(13px * var(--ui-scale));
+  --font-size-base: calc(14px * var(--ui-scale));
+  --font-size-lg: calc(15px * var(--ui-scale));
+  --font-size-xl: calc(16px * var(--ui-scale));
+  --font-size-2xl: calc(22px * var(--ui-scale));
+  --font-size-3xl: calc(28px * var(--ui-scale));
 
   --radius-none: 0;
   --radius-sm: 6px;
@@ -123,6 +129,14 @@
   --signal-negative: var(--color-negative);
 
   color-scheme: light;
+}
+
+/* ----- Interface-size variants ----- */
+[data-size="small"] {
+  --ui-scale: 0.9;
+}
+[data-size="large"] {
+  --ui-scale: 1.125;
 }
 
 /* ----- Semantic tokens (roles) — dark theme ----- */

@@ -2,7 +2,6 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
 import type { BriefingOut } from "../api/briefings";
-import { engineCallsApi } from "../api/engineCalls";
 import { Card, PillButton } from "../design/primitives";
 import { useArtifacts } from "../state/artifacts";
 import { useComposer } from "../state/composer";
@@ -16,14 +15,13 @@ interface BriefingCardProps {
 
 export function BriefingCard({ briefing, companyName }: BriefingCardProps) {
   const [collapsed, setCollapsed] = useState(false);
-  const push = useArtifacts((s) => s.push);
+  const loadById = useArtifacts((s) => s.loadById);
   const openMobile = useArtifacts((s) => s.openPaneMobile);
   const setDraft = useComposer((s) => s.setDraft);
 
   async function onCite(engineCallId: string) {
-    const envelope = await engineCallsApi.get(engineCallId);
-    push(envelope);
     openMobile();
+    await loadById(engineCallId);
   }
 
   async function openPrimarySource() {

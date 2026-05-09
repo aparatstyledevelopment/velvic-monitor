@@ -3,7 +3,6 @@ import { useMemo } from "react";
 import { useParams } from "react-router-dom";
 
 import { driversApi, DRIVERS_DATA_SOURCES } from "../../api/drivers";
-import { engineCallsApi } from "../../api/engineCalls";
 import { Hairline, PillButton } from "../../design/primitives";
 import { TakeoverHeader } from "../../layout/TakeoverHeader";
 import { useArtifacts } from "../../state/artifacts";
@@ -27,13 +26,12 @@ export function DriversDataView() {
     enabled: activeCompanyId !== null && source !== undefined,
   });
 
-  const pushArtifact = useArtifacts((s) => s.push);
+  const loadById = useArtifacts((s) => s.loadById);
   const openMobile = useArtifacts((s) => s.openPaneMobile);
 
   async function openSource(engineCallId: string) {
-    const envelope = await engineCallsApi.get(engineCallId);
-    pushArtifact(envelope);
     openMobile();
+    await loadById(engineCallId);
   }
 
   if (definition === null) {

@@ -114,6 +114,7 @@ const config: Config = {
       },
       maxWidth: {
         reading: "var(--reading-column)",
+        auth: "var(--auth-form-width)",
       },
       inset: {
         sidebar: "var(--sidebar-width)",

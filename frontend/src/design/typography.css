@@ -6,48 +6,48 @@
    labels (the "STOCK & TRADING" sectioning in the design blueprint). */
 
 .t-display {
-  font-size: 28px;
+  font-size: var(--font-size-3xl);
   font-weight: 600;
   line-height: 1.18;
   letter-spacing: -0.018em;
 }
 
 .t-title {
-  font-size: 22px;
+  font-size: var(--font-size-2xl);
   font-weight: 600;
   line-height: 1.25;
   letter-spacing: -0.01em;
 }
 
 .t-section {
-  font-size: 16px;
+  font-size: var(--font-size-xl);
   font-weight: 600;
   line-height: 1.35;
   letter-spacing: -0.005em;
 }
 
 .t-label {
-  font-size: 13px;
+  font-size: var(--font-size-md);
   font-weight: 500;
   line-height: 1.4;
   letter-spacing: -0.003em;
 }
 
 .t-body {
-  font-size: 14px;
+  font-size: var(--font-size-base);
   font-weight: 400;
   line-height: 1.55;
 }
 
 .t-small {
-  font-size: 13px;
+  font-size: var(--font-size-md);
   font-weight: 400;
   line-height: 1.5;
   color: var(--text-secondary);
 }
 
 .t-meta {
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   font-weight: 500;
   line-height: 1.4;
   color: var(--text-tertiary);
@@ -57,7 +57,7 @@
 
 .t-mono {
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: var(--font-size-md);
   line-height: 1.5;
 }
 

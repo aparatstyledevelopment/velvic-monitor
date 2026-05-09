@@ -1,5 +1,4 @@
 import type { ChatTurnOut } from "../api/chat";
-import { engineCallsApi } from "../api/engineCalls";
 import { Card, Pill, PillButton } from "../design/primitives";
 import { useArtifacts } from "../state/artifacts";
 import { useComposer } from "../state/composer";
@@ -33,15 +32,14 @@ interface ResponseCardProps {
 }
 
 export function ResponseCard({ data }: ResponseCardProps) {
-  const push = useArtifacts((s) => s.push);
+  const loadById = useArtifacts((s) => s.loadById);
   const openMobile = useArtifacts((s) => s.openPaneMobile);
   const setDraft = useComposer((s) => s.setDraft);
   const isRefusal = data.finish_reason === "refusal";
 
   async function onCite(engineCallId: string) {
-    const envelope = await engineCallsApi.get(engineCallId);
-    push(envelope);
     openMobile();
+    await loadById(engineCallId);
   }
 
   async function onOpenPrimarySource() {

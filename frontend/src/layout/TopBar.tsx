@@ -2,7 +2,6 @@ import { useQuery } from "@tanstack/react-query";
 import { Bell, Search } from "lucide-react";
 
 import { driversApi, type CompanySnapshot } from "../api/drivers";
-import { engineCallsApi } from "../api/engineCalls";
 import { IconButton } from "../design/primitives";
 import { useArtifacts } from "../state/artifacts";
 import { useCompanies } from "../state/companies";
@@ -59,14 +58,13 @@ export function TopBar() {
   const ret = formatReturn(data?.return_pct);
   const priceCallId = data?.price_engine_call_id ?? null;
 
-  const push = useArtifacts((s) => s.push);
+  const loadById = useArtifacts((s) => s.loadById);
   const openPaneMobile = useArtifacts((s) => s.openPaneMobile);
 
   async function openPriceSource() {
     if (priceCallId === null) return;
-    const envelope = await engineCallsApi.get(priceCallId);
-    push(envelope);
     openPaneMobile();
+    await loadById(priceCallId);
   }
 
   const toneClass =

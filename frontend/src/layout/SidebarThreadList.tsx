@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { MessageSquare } from "lucide-react";
 
 import { chatApi, type ChatThreadOut } from "../api/chat";
 import {
@@ -7,10 +7,13 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  Hairline,
   IconButton,
 } from "../design/primitives";
 import { useCompanies } from "../state/companies";
 import { useThreads } from "../state/threads";
+
+import { MODULES } from "./modules";
 
 export function SidebarThreadList() {
   const queryClient = useQueryClient();
@@ -35,20 +38,13 @@ export function SidebarThreadList() {
 
   return (
     <div className="flex flex-col">
-      <button
-        type="button"
-        onClick={() => setActiveThreadId(null)}
-        className="flex items-center gap-sm mx-md mb-sm px-md py-sm rounded-md t-body text-text-secondary hover:bg-surface-muted text-left"
-      >
-        <Plus size={14} aria-hidden="true" />
-        <span>New conversation</span>
-      </button>
-      <div className="px-md pt-md pb-xs t-meta">Recent chats</div>
+      <Hairline className="mx-sm mb-md" />
+      <div className="px-md pb-2xs t-meta">Recent chats</div>
       {threads.isLoading && (
-        <p className="px-md t-small text-text-tertiary">Loading&hellip;</p>
+        <p className="px-md py-xs t-small text-text-tertiary">Loading&hellip;</p>
       )}
       {!threads.isLoading && inScope.length === 0 && (
-        <p className="px-md t-small text-text-tertiary">No conversations yet.</p>
+        <p className="px-md py-xs t-small text-text-tertiary">No conversations yet.</p>
       )}
       <ul className="flex flex-col list-none p-0 m-0">
         {inScope.map((t) => (
@@ -65,6 +61,9 @@ export function SidebarThreadList() {
   );
 }
 
+const ACTIVE_MODULE_LABEL =
+  MODULES.find((m) => m.enabled)?.label ?? "Drivers";
+
 function ThreadRow({
   thread,
   active,
@@ -76,26 +75,41 @@ function ThreadRow({
   onSelect: () => void;
   onArchive: () => void;
 }) {
-  const rowCls = [
-    "group relative flex items-start gap-sm mx-md px-md py-sm rounded-md",
-    active
-      ? "bg-surface-muted text-text-primary"
-      : "text-text-secondary hover:bg-surface-muted",
-  ].join(" ");
   return (
-    <li>
-      <div className={rowCls}>
+    <li className="relative">
+      {active && (
+        <span
+          aria-hidden="true"
+          className="absolute left-0 top-2xs bottom-2xs w-px bg-text-primary"
+        />
+      )}
+      <div className="group relative flex items-center gap-sm pl-md pr-2xs">
         <button
           type="button"
           onClick={onSelect}
-          className="flex-1 min-w-0 text-left flex flex-col gap-xxs"
           aria-current={active ? "page" : undefined}
+          className="flex-1 min-w-0 flex items-center gap-sm py-2xs text-left rounded-md focus:outline-none focus-visible:ring-1 focus-visible:ring-text-primary"
         >
-          <span className="block t-body truncate leading-snug">{thread.title}</span>
-          <span className="flex items-center gap-xs t-meta normal-case tracking-normal text-xs text-text-tertiary">
-            <span className="truncate">Drivers</span>
-            <span aria-hidden="true">·</span>
-            <span className="shrink-0">{relativeTime(thread.updated_at)}</span>
+          <MessageSquare
+            size={14}
+            aria-hidden="true"
+            className={["shrink-0", active ? "text-text-primary" : "text-text-tertiary"].join(" ")}
+          />
+          <span className="flex-1 min-w-0 flex flex-col">
+            <span
+              className={[
+                "truncate text-md",
+                active ? "text-text-primary font-medium" : "text-text-secondary",
+              ].join(" ")}
+            >
+              {thread.title}
+            </span>
+            <span className="t-meta normal-case tracking-normal text-xs text-text-tertiary truncate">
+              {ACTIVE_MODULE_LABEL}
+            </span>
+          </span>
+          <span className="t-meta normal-case tracking-normal text-xs text-text-tertiary shrink-0">
+            {relativeTime(thread.updated_at)}
           </span>
         </button>
         <DropdownMenu>

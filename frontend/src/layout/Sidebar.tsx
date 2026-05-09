@@ -47,7 +47,7 @@ export function Sidebar() {
 
   return (
     <aside
-      className="hidden lg:flex w-sidebar shrink-0 flex-col border-r border-border bg-surface"
+      className="h-full w-full flex flex-col border-r border-border bg-surface"
       aria-label="Primary navigation"
     >
       <div className="px-lg pt-xl pb-md">

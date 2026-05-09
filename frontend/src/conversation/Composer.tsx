@@ -129,9 +129,6 @@ export function Composer({
               <ArrowUp size={16} aria-hidden="true" />
             </button>
           </div>
-          <p className="t-meta mt-sm">
-            Enter to send · Shift+Enter for newline · / for commands
-          </p>
         </form>
       </div>
     </div>

@@ -30,12 +30,21 @@ function readInitial(): { theme: Theme; interfaceSize: InterfaceSize } {
 function persist(state: { theme: Theme; interfaceSize: InterfaceSize }): void {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  // theme + size both flow through data-* attributes so tokens.css can
+  // override --ui-scale and --surface-* variables in one place.
   document.documentElement.dataset.theme = state.theme;
-  const fontSize = { small: "14px", medium: "15px", large: "17px" }[state.interfaceSize];
-  document.documentElement.style.fontSize = fontSize;
+  document.documentElement.dataset.size = state.interfaceSize;
 }
 
 const initial = readInitial();
+if (typeof document !== "undefined") {
+  // Make sure the saved preferences are reflected on first paint, before
+  // any component reads tokenised CSS variables. Without this the very
+  // first render uses default-medium scale even when the user picked
+  // small/large in a previous session.
+  document.documentElement.dataset.theme = initial.theme;
+  document.documentElement.dataset.size = initial.interfaceSize;
+}
 
 export const usePrefs = create<PrefsState>((set, get) => ({
   ...initial,

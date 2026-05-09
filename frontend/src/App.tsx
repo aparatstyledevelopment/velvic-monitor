@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 
 import { authApi } from "./api/auth";
@@ -18,6 +19,7 @@ export function App() {
   const setLoading = useAuth((s) => s.setLoading);
   const location = useLocation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     let cancelled = false;
@@ -39,6 +41,18 @@ export function App() {
       cancelled = true;
     };
   }, [setMe, setLoading]);
+
+  useEffect(() => {
+    function onUnauthorized() {
+      // session expired mid-flight: drop cached data so we don't refetch on
+      // top of the redirect, clear identity, and bounce to /login.
+      queryClient.cancelQueries();
+      queryClient.clear();
+      setMe(null);
+    }
+    window.addEventListener("auth:unauthorized", onUnauthorized);
+    return () => window.removeEventListener("auth:unauthorized", onUnauthorized);
+  }, [queryClient, setMe]);
 
   useEffect(() => {
     if (loading) return;

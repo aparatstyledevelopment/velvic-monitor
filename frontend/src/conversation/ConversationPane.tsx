@@ -3,7 +3,6 @@ import { useState } from "react";
 
 import { briefingsApi, type BriefingOut } from "../api/briefings";
 import { chatApi, type ChatTurnOut } from "../api/chat";
-import { engineCallsApi } from "../api/engineCalls";
 import { ApiError } from "../api/client";
 import {
   Dialog,
@@ -38,7 +37,7 @@ export function ConversationPane({ companyId, companyName }: ConversationPanePro
   const activeThreadId = useThreads((s) => s.activeThreadId);
   const setActiveThreadId = useThreads((s) => s.setActiveThreadId);
   const setActiveCompanyId = useCompanies((s) => s.setActiveCompanyId);
-  const pushArtifact = useArtifacts((s) => s.push);
+  const loadArtifactById = useArtifacts((s) => s.loadById);
   const openMobile = useArtifacts((s) => s.openPaneMobile);
 
   const [pendingUser, setPendingUser] = useState<string | null>(null);
@@ -76,7 +75,7 @@ export function ConversationPane({ companyId, companyName }: ConversationPanePro
   async function sendMessage(text: string) {
     let threadId = activeThreadId;
     if (threadId === null) {
-      const created = await chatApi.create(companyId);
+      const created = await chatApi.create(companyId, deriveThreadTitle(text));
       threadId = created.id;
       setActiveThreadId(threadId);
       await queryClient.invalidateQueries({ queryKey: ["threads"] });
@@ -123,8 +122,7 @@ export function ConversationPane({ companyId, companyName }: ConversationPanePro
             !seenEngineCallIds.has(ev.engine_call_id)
           ) {
             seenEngineCallIds.add(ev.engine_call_id);
-            const envelope = await engineCallsApi.get(ev.engine_call_id);
-            pushArtifact(envelope);
+            void loadArtifactById(ev.engine_call_id);
           }
         } else if (ev.type === "warning") {
           setStreaming((prev) =>
@@ -251,4 +249,17 @@ function BriefingSection({
   }
   if (briefing === undefined) return null;
   return <BriefingCard briefing={briefing} companyName={companyName} />;
+}
+
+/**
+ * Title for the auto-created thread on the user's first message. We use
+ * the message itself (collapsed whitespace, capped) so the sidebar shows
+ * something distinct per conversation instead of the
+ * "Conversation about $TICKER" backend default.
+ */
+function deriveThreadTitle(text: string, maxLen = 60): string {
+  const cleaned = text.replace(/\s+/g, " ").trim();
+  if (cleaned.length === 0) return "New conversation";
+  if (cleaned.length <= maxLen) return cleaned;
+  return `${cleaned.slice(0, maxLen - 1).trimEnd()}…`;
 }
