@@ -1,8 +1,9 @@
 import type { EngineCallEnvelope } from "../state/artifacts";
-import { Hairline } from "../design/primitives";
+import { Hairline, Sparkline } from "../design/primitives";
 
 import {
   describeArtifact,
+  humaniseKey,
   inspectResponse,
   renderFunctionCall,
   toolMeta,
@@ -118,6 +119,23 @@ function ResponseBody({ envelope }: { envelope: EngineCallEnvelope }) {
         <div className="flex flex-col gap-md">
           {response.scalars.length > 0 && (
             <FieldList entries={response.scalars} />
+          )}
+          {response.series !== null && (
+            <figure
+              className="flex flex-col gap-xs rounded-md border border-border bg-surface-muted px-lg py-md"
+              aria-label={`${humaniseKey(response.series.valueColumn)} trend`}
+            >
+              <figcaption className="t-meta">
+                {humaniseKey(response.series.valueColumn)} trend
+              </figcaption>
+              <Sparkline
+                values={response.series.values}
+                width={320}
+                height={64}
+                ariaLabel={`${humaniseKey(response.series.valueColumn)} sparkline`}
+                className="w-full h-auto"
+              />
+            </figure>
           )}
           <RecordsTable columns={response.columns} rows={response.rows} />
         </div>

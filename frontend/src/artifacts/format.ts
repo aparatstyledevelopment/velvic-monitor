@@ -115,9 +115,25 @@ export function formatDate(value: string): string {
 
 export type ResponseShape =
   | { kind: "sql"; sql: string; columns: readonly string[]; rows: readonly unknown[][] }
-  | { kind: "records"; key: string | null; columns: readonly string[]; rows: readonly Record<string, unknown>[]; scalars: readonly [string, unknown][] }
+  | {
+      kind: "records";
+      key: string | null;
+      columns: readonly string[];
+      rows: readonly Record<string, unknown>[];
+      scalars: readonly [string, unknown][];
+      series: TimeSeriesPreview | null;
+    }
   | { kind: "fields"; scalars: readonly [string, unknown][] }
   | { kind: "json"; raw: unknown };
+
+export interface TimeSeriesPreview {
+  /** Column whose values are ISO dates / timestamps. */
+  dateColumn: string;
+  /** Numeric column we're plotting. */
+  valueColumn: string;
+  /** Y values in the order the rows arrived. */
+  values: readonly number[];
+}
 
 /**
  * Inspect `data` and pick a presentation:
@@ -168,6 +184,7 @@ export function inspectResponse(envelope: EngineCallEnvelope): ResponseShape {
       columns,
       rows: rec.rows,
       scalars,
+      series: detectTimeSeries(columns, rec.rows),
     };
   }
 
@@ -182,6 +199,93 @@ export function inspectResponse(envelope: EngineCallEnvelope): ResponseShape {
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+
+const PREFERRED_DATE_KEYS = [
+  "trading_date",
+  "as_of",
+  "observation_date",
+  "date",
+  "timestamp",
+];
+
+const PREFERRED_VALUE_KEYS = [
+  "close",
+  "value",
+  "daily_return_pct",
+  "return_pct",
+  "price",
+];
+
+/**
+ * Recognise a records-shaped response as a time series so the artifact
+ * card can preview a sparkline above the table. Looks for a column of
+ * ISO-shaped dates and a numeric column to plot; preference goes to the
+ * canonical names the engine uses (trading_date / close / value).
+ */
+function detectTimeSeries(
+  columns: readonly string[],
+  rows: readonly Record<string, unknown>[],
+): TimeSeriesPreview | null {
+  if (rows.length < 2) return null;
+
+  const dateColumn = pickDateColumn(columns, rows);
+  if (dateColumn === null) return null;
+
+  const valueColumn = pickValueColumn(columns, rows, dateColumn);
+  if (valueColumn === null) return null;
+
+  const values: number[] = [];
+  for (const row of rows) {
+    const n = numberOf(row[valueColumn]);
+    if (n === null) return null;
+    values.push(n);
+  }
+  return { dateColumn, valueColumn, values };
+}
+
+function pickDateColumn(
+  columns: readonly string[],
+  rows: readonly Record<string, unknown>[],
+): string | null {
+  for (const key of PREFERRED_DATE_KEYS) {
+    if (columns.includes(key) && allDateLike(rows, key)) return key;
+  }
+  for (const c of columns) {
+    if (allDateLike(rows, c)) return c;
+  }
+  return null;
+}
+
+function pickValueColumn(
+  columns: readonly string[],
+  rows: readonly Record<string, unknown>[],
+  exclude: string,
+): string | null {
+  for (const key of PREFERRED_VALUE_KEYS) {
+    if (key !== exclude && columns.includes(key) && allNumeric(rows, key)) {
+      return key;
+    }
+  }
+  for (const c of columns) {
+    if (c !== exclude && allNumeric(rows, c)) return c;
+  }
+  return null;
+}
+
+function allDateLike(rows: readonly Record<string, unknown>[], key: string): boolean {
+  for (const row of rows) {
+    const v = row[key];
+    if (typeof v !== "string" || !looksLikeDate(v)) return false;
+  }
+  return true;
+}
+
+function allNumeric(rows: readonly Record<string, unknown>[], key: string): boolean {
+  for (const row of rows) {
+    if (numberOf(row[key]) === null) return false;
+  }
+  return true;
 }
 
 function unionKeys(rows: readonly Record<string, unknown>[]): string[] {
