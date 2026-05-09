@@ -47,14 +47,14 @@ export function Sidebar() {
 
   return (
     <aside
-      className="hidden lg:flex w-[220px] shrink-0 flex-col border-r border-border bg-surface"
+      className="hidden lg:flex w-sidebar shrink-0 flex-col border-r border-border bg-surface"
       aria-label="Primary navigation"
     >
       <div className="px-lg pt-xl pb-md">
         <span className="t-section">Velvic Monitor</span>
         <span className="t-meta block mt-xs">Monitor</span>
       </div>
-      <div className="px-sm pb-lg pt-md">
+      <div className="px-sm pb-md">
         <CompanySwitcher
           companies={companies}
           activeCompanyId={activeCompanyId}
@@ -87,7 +87,7 @@ export function Sidebar() {
           return (
             <SidebarNavItem
               key={m.key}
-              icon={<m.icon size={14} />}
+              icon={<m.icon size={16} />}
               label={m.label}
               active={isActive}
               soon={!m.enabled}
@@ -98,7 +98,7 @@ export function Sidebar() {
             />
           );
         })}
-        <div className="mt-md">
+        <div className="mt-lg">
           <SidebarThreadList />
         </div>
       </nav>

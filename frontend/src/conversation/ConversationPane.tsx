@@ -175,7 +175,7 @@ export function ConversationPane({ companyId, companyName }: ConversationPanePro
         </IconButton>
       </header>
       <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-[760px] w-full px-xl py-2xl flex flex-col gap-xl">
+        <div className="mx-auto max-w-reading w-full px-xl py-2xl flex flex-col gap-xl">
           <BriefingSection
             briefing={briefingQ.data}
             companyName={companyName}
@@ -204,7 +204,7 @@ export function ConversationPane({ companyId, companyName }: ConversationPanePro
           <ul className="t-body flex flex-col gap-sm" style={{ listStyle: "none", padding: 0, margin: 0 }}>
             {SLASH_REGISTRY.map((c) => (
               <li key={c.name} className="flex items-baseline gap-md">
-                <code className="t-mono text-[13px]">{c.label}</code>
+                <code className="t-mono text-md">{c.label}</code>
                 <span className="t-small text-text-secondary">{c.description}</span>
               </li>
             ))}

@@ -19,8 +19,8 @@ export function GenericTable({ data }: GenericTableProps) {
 function Row({ k, v }: { k: string; v: unknown }) {
   return (
     <>
-      <dt className="t-meta self-start pt-[2px]">{k}</dt>
-      <dd className="t-mono text-[12px] break-all whitespace-pre-wrap">{formatValue(v)}</dd>
+      <dt className="t-meta self-start pt-xxs">{k}</dt>
+      <dd className="t-mono text-sm break-all whitespace-pre-wrap">{formatValue(v)}</dd>
     </>
   );
 }

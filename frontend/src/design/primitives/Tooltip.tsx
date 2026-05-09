@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 
 const contentClasses = [
   "rounded-sm bg-surface-inverted text-surface px-sm py-xs",
-  "text-[12px] leading-tight",
+  "text-sm leading-tight",
   "shadow-sm",
   "select-none",
 ].join(" ");

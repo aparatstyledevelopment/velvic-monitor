@@ -20,7 +20,7 @@ const interactiveToneHover: Record<Tone, string> = {
 };
 
 const baseClasses =
-  "inline-flex items-center gap-xs h-7 px-md rounded-pill text-[12px] font-medium leading-none";
+  "inline-flex items-center gap-xs h-control-sm px-md rounded-pill text-sm font-medium leading-none";
 
 interface CommonPillProps {
   tone?: Tone;

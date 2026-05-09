@@ -71,6 +71,17 @@ const config: Config = {
       sans: "var(--font-sans)",
       mono: "var(--font-mono)",
     },
+    fontSize: {
+      "2xs": ["var(--font-size-2xs)", { lineHeight: "1.4" }],
+      xs: ["var(--font-size-xs)", { lineHeight: "1.4" }],
+      sm: ["var(--font-size-sm)", { lineHeight: "1.4" }],
+      md: ["var(--font-size-md)", { lineHeight: "1.45" }],
+      base: ["var(--font-size-base)", { lineHeight: "1.55" }],
+      lg: ["var(--font-size-lg)", { lineHeight: "1.45" }],
+      xl: ["var(--font-size-xl)", { lineHeight: "1.4" }],
+      "2xl": ["var(--font-size-2xl)", { lineHeight: "1.25" }],
+      "3xl": ["var(--font-size-3xl)", { lineHeight: "1.18" }],
+    },
     extend: {
       transitionDuration: {
         fast: "var(--motion-fast)",
@@ -79,6 +90,37 @@ const config: Config = {
       },
       transitionTimingFunction: {
         standard: "var(--ease-standard)",
+      },
+      height: {
+        "control-sm": "var(--control-height-sm)",
+        "control-md": "var(--control-height-md)",
+        "control-lg": "var(--control-height-lg)",
+        "control-xl": "var(--control-height-xl)",
+        bar: "var(--bar-height)",
+        "avatar-sm": "var(--avatar-sm)",
+        "avatar-md": "var(--avatar-md)",
+      },
+      width: {
+        "control-sm": "var(--control-height-sm)",
+        "control-md": "var(--control-height-md)",
+        "control-lg": "var(--control-height-lg)",
+        "control-xl": "var(--control-height-xl)",
+        "avatar-sm": "var(--avatar-sm)",
+        "avatar-md": "var(--avatar-md)",
+        sidebar: "var(--sidebar-width)",
+        "artifact-pane": "var(--artifact-pane-width)",
+        "artifact-pane-xl": "var(--artifact-pane-width-xl)",
+        search: "var(--search-width)",
+      },
+      maxWidth: {
+        reading: "var(--reading-column)",
+      },
+      inset: {
+        sidebar: "var(--sidebar-width)",
+        bar: "var(--bar-height)",
+      },
+      margin: {
+        bar: "var(--bar-height)",
       },
     },
   },

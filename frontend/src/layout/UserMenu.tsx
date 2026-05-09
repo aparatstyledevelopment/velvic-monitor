@@ -9,6 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  IconButton,
 } from "../design/primitives";
 import { useAuth } from "../state/auth";
 
@@ -25,38 +26,46 @@ export function UserMenu() {
     navigate("/login", { replace: true });
   }
 
+  const menuLabel = me.display_name ?? me.email;
+
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          aria-label="User menu"
-          className="flex w-full items-center gap-sm px-md py-sm rounded-md hover:bg-surface-muted focus:outline-none focus-visible:ring-1 focus-visible:ring-text-primary"
-        >
-          <Avatar name={me.display_name} email={me.email} size="sm" />
-          <span className="flex-1 min-w-0 text-left">
-            <span className="block t-body truncate">
-              {me.display_name ?? me.email}
+    <div className="flex items-center justify-between gap-sm px-2xs">
+      <IconButton label="Settings" onClick={() => navigate("/settings")}>
+        <SettingsIcon size={16} aria-hidden="true" />
+      </IconButton>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            aria-label={`Account menu for ${menuLabel}`}
+            className="rounded-pill focus:outline-none focus-visible:ring-2 focus-visible:ring-text-primary focus-visible:ring-offset-1 focus-visible:ring-offset-surface"
+          >
+            <Avatar name={me.display_name} email={me.email} size="sm" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" sideOffset={8}>
+          <div className="px-md pt-2xs pb-xs">
+            <span className="block t-small text-text-primary truncate">
+              {menuLabel}
             </span>
             <span className="block t-meta truncate">{me.org_name}</span>
-          </span>
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" sideOffset={8}>
-        <DropdownMenuItem onSelect={() => navigate("/settings")}>
-          <span className="inline-flex items-center gap-sm">
-            <SettingsIcon size={14} aria-hidden="true" />
-            Settings
-          </span>
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={onLogout}>
-          <span className="inline-flex items-center gap-sm">
-            <LogOut size={14} aria-hidden="true" />
-            Sign out
-          </span>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+          </div>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={() => navigate("/settings")}>
+            <span className="inline-flex items-center gap-sm">
+              <SettingsIcon size={14} aria-hidden="true" />
+              Settings
+            </span>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={onLogout}>
+            <span className="inline-flex items-center gap-sm">
+              <LogOut size={14} aria-hidden="true" />
+              Sign out
+            </span>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   );
 }

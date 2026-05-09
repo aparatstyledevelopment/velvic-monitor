@@ -40,7 +40,7 @@ export function SettingsPage() {
         subtitle="Manage your Velvic Monitor preferences."
       />
 
-      <div className="px-xl pb-3xl max-w-[760px] mx-auto w-full flex flex-col gap-2xl">
+      <div className="px-xl pb-3xl max-w-reading mx-auto w-full flex flex-col gap-2xl">
         <Section title="Display">
           <SettingRow
             icon={<Maximize2 size={16} aria-hidden="true" />}
@@ -156,7 +156,7 @@ function SettingRow({ icon, title, description, control }: SettingRowProps) {
     <div className="flex items-center gap-md px-lg py-md border-b border-border last:border-b-0">
       <span
         aria-hidden="true"
-        className="inline-flex items-center justify-center w-8 h-8 rounded-md bg-surface-muted text-text-secondary shrink-0"
+        className="inline-flex items-center justify-center w-control-md h-control-md rounded-md bg-surface-muted text-text-secondary shrink-0"
       >
         {icon}
       </span>
@@ -201,7 +201,7 @@ function SegmentedControl<T extends string>({
             aria-checked={active}
             onClick={() => onSelect(opt.value)}
             className={[
-              "inline-flex items-center justify-center h-7 px-md rounded-pill text-[12px] font-medium transition-colors",
+              "inline-flex items-center justify-center h-control-sm px-md rounded-pill text-sm font-medium transition-colors",
               active
                 ? "bg-surface-inverted text-surface"
                 : "text-text-secondary hover:text-text-primary",

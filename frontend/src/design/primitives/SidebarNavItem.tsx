@@ -27,7 +27,7 @@ export const SidebarNavItem = forwardRef<HTMLButtonElement, SidebarNavItemProps>
   ) => {
     const isDisabled = disabled === true || soon;
     const stateClasses = active
-      ? "text-text-primary font-medium"
+      ? "text-text-primary font-medium bg-surface-muted"
       : isDisabled
         ? "text-text-quaternary cursor-not-allowed"
         : "text-text-secondary hover:text-text-primary hover:bg-surface-muted";
@@ -40,7 +40,7 @@ export const SidebarNavItem = forwardRef<HTMLButtonElement, SidebarNavItemProps>
         aria-current={active ? "page" : undefined}
         className={[
           "group relative flex w-full items-center gap-sm",
-          "px-md h-9 rounded-md text-left",
+          "px-md h-control-lg rounded-md text-left",
           "transition-[background-color,color] duration-fast ease-standard",
           "focus:outline-none focus-visible:ring-2 focus-visible:ring-text-primary focus-visible:ring-offset-1 focus-visible:ring-offset-surface",
           stateClasses,
@@ -49,14 +49,15 @@ export const SidebarNavItem = forwardRef<HTMLButtonElement, SidebarNavItemProps>
         {...rest}
       >
         {icon !== undefined && (
-          <span aria-hidden="true" className="shrink-0 inline-flex items-center justify-center w-4 h-4">
+          <span
+            aria-hidden="true"
+            className="shrink-0 inline-flex items-center justify-center w-lg h-lg"
+          >
             {icon}
           </span>
         )}
-        <span className="flex-1 truncate text-[13px] leading-none">{label}</span>
-        {soon && (
-          <span className="t-meta text-text-quaternary tracking-[0.08em]">Soon</span>
-        )}
+        <span className="flex-1 truncate text-md">{label}</span>
+        {soon && <span className="t-meta text-text-quaternary">Soon</span>}
         {!soon && trailing !== undefined && (
           <span className="ml-auto inline-flex items-center">{trailing}</span>
         )}

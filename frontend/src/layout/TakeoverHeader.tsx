@@ -14,7 +14,7 @@ export function TakeoverHeader({
 }: TakeoverHeaderProps) {
   const navigate = useNavigate();
   return (
-    <header className="px-xl pt-xl pb-lg max-w-[760px] mx-auto w-full">
+    <header className="px-xl pt-xl pb-lg max-w-reading mx-auto w-full">
       <button
         type="button"
         onClick={() => navigate(backTo)}

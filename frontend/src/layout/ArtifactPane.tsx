@@ -7,7 +7,7 @@ import { useHistoryBridge } from "../history/bridge";
 export function ArtifactPane({ children }: { children?: ReactNode }) {
   return (
     <aside
-      className="hidden lg:flex w-[400px] xl:w-[440px] shrink-0 flex-col border-l border-border bg-surface"
+      className="hidden lg:flex w-artifact-pane xl:w-artifact-pane-xl shrink-0 flex-col border-l border-border bg-surface"
       aria-label="Artifact stack"
     >
       <header className="px-lg py-md flex items-center justify-between">

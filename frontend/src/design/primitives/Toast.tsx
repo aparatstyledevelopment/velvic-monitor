@@ -39,10 +39,10 @@ export function Toast({
     <div role="status" aria-live="polite" className={classes}>
       <span
         aria-hidden="true"
-        className={["mt-[6px] h-2 w-2 rounded-pill shrink-0", accentClasses[variant]].join(" ")}
+        className={["mt-2xs h-sm w-sm rounded-pill shrink-0", accentClasses[variant]].join(" ")}
       />
       <div className="flex-1 min-w-0">
-        {title !== undefined && <div className="t-section text-[14px] mb-xxs">{title}</div>}
+        {title !== undefined && <div className="t-section text-base mb-xxs">{title}</div>}
         <div className="t-small text-text-secondary">{children}</div>
       </div>
       {onDismiss !== undefined && (
@@ -50,7 +50,7 @@ export function Toast({
           type="button"
           onClick={onDismiss}
           aria-label="Dismiss"
-          className="text-text-tertiary hover:text-text-primary text-[12px]"
+          className="text-text-tertiary hover:text-text-primary text-sm"
         >
           ×
         </button>

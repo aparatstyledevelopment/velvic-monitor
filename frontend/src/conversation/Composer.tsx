@@ -84,7 +84,7 @@ export function Composer({
 
   return (
     <div className="bg-surface">
-      <div className="mx-auto max-w-[760px] w-full px-xl pt-md pb-xl">
+      <div className="mx-auto max-w-reading w-full px-xl pt-md pb-xl">
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -95,7 +95,7 @@ export function Composer({
           {candidates.length > 0 && (
             <SlashAutocomplete candidates={candidates} onPick={applyCandidate} />
           )}
-          <div className="flex items-end gap-sm rounded-pill border border-border bg-surface focus-within:border-text-primary transition-[border-color] duration-fast pl-md pr-xs py-2xs">
+          <div className="flex items-end gap-sm rounded-pill border border-border bg-surface focus-within:border-text-primary transition-[border-color] duration-fast pl-md pr-2xs py-2xs">
             <span
               aria-hidden="true"
               className="self-center text-text-tertiary shrink-0"
@@ -119,7 +119,7 @@ export function Composer({
               aria-label="Send message"
               className={[
                 "shrink-0 inline-flex items-center justify-center rounded-pill",
-                "h-8 w-8 transition-[opacity,background-color] duration-fast",
+                "h-control-md w-control-md transition-[opacity,background-color] duration-fast",
                 "focus:outline-none focus-visible:ring-2 focus-visible:ring-text-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface",
                 sendDisabled
                   ? "bg-surface-muted text-text-quaternary cursor-not-allowed"
@@ -160,7 +160,7 @@ function SlashAutocomplete({
           onClick={() => onPick(c)}
           className="flex w-full items-center justify-between gap-md px-md py-sm hover:bg-surface-muted text-left"
         >
-          <span className="t-mono text-[13px]">{c.label}</span>
+          <span className="t-mono text-md">{c.label}</span>
           <span className="t-small text-text-tertiary truncate">{c.description}</span>
         </button>
       ))}

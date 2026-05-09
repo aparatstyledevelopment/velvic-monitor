@@ -78,7 +78,7 @@ export function TopBar() {
 
   return (
     <header
-      className="flex items-center gap-lg px-xl h-14 border-b border-border bg-surface shrink-0"
+      className="flex items-center gap-lg px-xl h-bar border-b border-border bg-surface shrink-0"
       aria-label="Company snapshot"
     >
       <div className="flex items-baseline gap-md min-w-0 flex-1">
@@ -98,16 +98,11 @@ export function TopBar() {
         {price !== null && (
           <>
             <Separator />
-            <span className="t-numeric text-[15px] truncate">{price} SEK</span>
+            <span className="t-numeric text-lg truncate">{price} SEK</span>
           </>
         )}
         {ret !== null && (
-          <span
-            className={[
-              "t-numeric text-[14px] shrink-0",
-              toneClass,
-            ].join(" ")}
-          >
+          <span className={["t-numeric text-base shrink-0", toneClass].join(" ")}>
             {ret.text}
           </span>
         )}
@@ -144,7 +139,7 @@ function SearchStub() {
     <div
       role="search"
       aria-disabled="true"
-      className="flex items-center gap-sm h-9 w-72 px-md rounded-pill border border-border bg-surface-muted text-text-tertiary cursor-not-allowed"
+      className="flex items-center gap-sm h-control-md w-search px-md rounded-pill border border-border bg-surface-muted text-text-tertiary cursor-not-allowed"
       title="Global search — coming soon"
     >
       <Search size={14} aria-hidden="true" />

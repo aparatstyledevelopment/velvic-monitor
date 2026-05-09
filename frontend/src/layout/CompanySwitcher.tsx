@@ -46,7 +46,7 @@ export function CompanySwitcher({
           aria-label={`Active company ${active.name}, switch`}
         >
           <CompanyLabel company={active} />
-          <span aria-hidden="true" className="text-text-tertiary text-[12px]">
+          <span aria-hidden="true" className="text-text-tertiary text-sm">
             ▾
           </span>
         </button>
@@ -65,7 +65,7 @@ export function CompanySwitcher({
 function CompanyLabel({ company }: { company: CompanyOut }) {
   return (
     <span className="flex items-center gap-sm min-w-0">
-      <span className="t-mono text-[12px] text-text-tertiary shrink-0">{company.ticker}</span>
+      <span className="t-mono text-sm text-text-tertiary shrink-0">{company.ticker}</span>
       <span className="t-body truncate">{company.name}</span>
     </span>
   );

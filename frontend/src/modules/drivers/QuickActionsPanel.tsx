@@ -34,7 +34,7 @@ export function QuickActionsPanel() {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-30 lg:left-[220px]">
+    <div className="fixed inset-0 z-30 lg:left-sidebar">
       <button
         type="button"
         aria-label="Close quick actions"
@@ -44,7 +44,7 @@ export function QuickActionsPanel() {
       <div
         role="dialog"
         aria-label="Drivers quick actions"
-        className="relative ml-md mt-[80px] max-w-[320px] rounded-lg border border-border bg-surface shadow-md overflow-hidden"
+        className="relative ml-md mt-bar max-w-[320px] rounded-lg border border-border bg-surface shadow-md overflow-hidden"
       >
         <header className="px-lg pt-md pb-xs">
           <span className="t-meta">Drivers · ground truth</span>

@@ -128,7 +128,7 @@ function WarningRow({ warning }: { warning: string }) {
     >
       <span
         aria-hidden="true"
-        className="mt-[6px] h-2 w-2 rounded-pill shrink-0"
+        className="mt-2xs h-sm w-sm rounded-pill shrink-0"
         style={{ background: "var(--signal-negative)" }}
       />
       <p className="t-small text-text-secondary flex-1">{message}</p>
@@ -138,14 +138,14 @@ function WarningRow({ warning }: { warning: string }) {
 
 function TypingIndicator() {
   return (
-    <span aria-label="Streaming response" className="inline-flex gap-[3px]">
-      <span className="h-[4px] w-[4px] rounded-pill bg-text-tertiary animate-pulse" />
+    <span aria-label="Streaming response" className="inline-flex gap-xxs">
+      <span className="h-xs w-xs rounded-pill bg-text-tertiary animate-pulse" />
       <span
-        className="h-[4px] w-[4px] rounded-pill bg-text-tertiary animate-pulse"
+        className="h-xs w-xs rounded-pill bg-text-tertiary animate-pulse"
         style={{ animationDelay: "120ms" }}
       />
       <span
-        className="h-[4px] w-[4px] rounded-pill bg-text-tertiary animate-pulse"
+        className="h-xs w-xs rounded-pill bg-text-tertiary animate-pulse"
         style={{ animationDelay: "240ms" }}
       />
     </span>

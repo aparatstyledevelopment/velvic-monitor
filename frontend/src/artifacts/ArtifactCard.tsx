@@ -17,7 +17,7 @@ export function ArtifactCard({ envelope }: ArtifactCardProps) {
         <>
           <div className="flex items-center gap-sm min-w-0">
             <Pill>{envelope.tool_name}</Pill>
-            <span className="t-mono text-[11px] text-text-tertiary truncate">
+            <span className="t-mono text-xs text-text-tertiary truncate">
               {shortId}
             </span>
           </div>

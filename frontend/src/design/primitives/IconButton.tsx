@@ -10,7 +10,7 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
   ({ label, className = "", children, ...rest }, ref) => {
     const classes = [
       "inline-flex items-center justify-center",
-      "h-7 w-7 rounded-md",
+      "h-control-sm w-control-sm rounded-md",
       "text-text-secondary hover:text-text-primary hover:bg-track",
       "transition-[background-color,color] duration-fast ease-standard",
       "focus:outline-none focus-visible:ring-1 focus-visible:ring-text-primary",

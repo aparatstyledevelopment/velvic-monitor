@@ -33,7 +33,7 @@ export function Stat({
       <div className="t-meta">{label}</div>
       <div
         className={[
-          "t-numeric text-[22px] leading-tight tracking-tight truncate",
+          "t-numeric text-2xl leading-tight tracking-tight truncate",
           toneClasses[tone],
         ].join(" ")}
       >

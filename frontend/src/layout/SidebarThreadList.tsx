@@ -92,7 +92,7 @@ function ThreadRow({
           aria-current={active ? "page" : undefined}
         >
           <span className="block t-body truncate leading-snug">{thread.title}</span>
-          <span className="flex items-center gap-xs t-meta normal-case tracking-normal text-[11px] text-text-tertiary">
+          <span className="flex items-center gap-xs t-meta normal-case tracking-normal text-xs text-text-tertiary">
             <span className="truncate">Drivers</span>
             <span aria-hidden="true">·</span>
             <span className="shrink-0">{relativeTime(thread.updated_at)}</span>

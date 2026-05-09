@@ -38,7 +38,7 @@ export function DriversDataView() {
 
   if (definition === null) {
     return (
-      <div className="px-xl py-2xl max-w-[760px] mx-auto">
+      <div className="px-xl py-2xl max-w-reading mx-auto">
         <TakeoverHeader title="Unknown source" subtitle="No such Drivers data view." />
       </div>
     );
@@ -47,7 +47,7 @@ export function DriversDataView() {
   return (
     <div className="flex flex-col">
       <TakeoverHeader title={definition.label} subtitle={definition.description} />
-      <div className="px-xl pb-3xl max-w-[760px] mx-auto w-full flex flex-col gap-lg">
+      <div className="px-xl pb-3xl max-w-reading mx-auto w-full flex flex-col gap-lg">
         {dataQ.isLoading && (
           <p className="t-small text-text-tertiary">Loading data&hellip;</p>
         )}
@@ -63,7 +63,7 @@ export function DriversDataView() {
             </div>
             <Hairline />
             <pre
-              className="t-mono text-[12px] leading-relaxed whitespace-pre-wrap rounded-lg border border-border bg-surface-muted px-lg py-md overflow-x-auto"
+              className="t-mono text-sm leading-relaxed whitespace-pre-wrap rounded-lg border border-border bg-surface-muted px-lg py-md overflow-x-auto"
               aria-label={`${definition.label} raw data`}
             >
               {JSON.stringify(dataQ.data.data, null, 2)}

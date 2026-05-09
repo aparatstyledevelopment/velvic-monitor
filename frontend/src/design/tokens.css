@@ -44,6 +44,35 @@
   --space-4xl: 64px;
   --space-5xl: 96px;
 
+  /* Control heights — discrete sizes for inline UI (pills, buttons, rows).
+     Keep in sync with width counterparts for square controls. */
+  --control-height-sm: 28px;
+  --control-height-md: 32px;
+  --control-height-lg: 36px;
+  --control-height-xl: 40px;
+  --bar-height: 56px;
+
+  --avatar-sm: 24px;
+  --avatar-md: 32px;
+
+  /* Layout widths — surfaces that hold structured navigation/content. */
+  --sidebar-width: 224px;
+  --artifact-pane-width: 400px;
+  --artifact-pane-width-xl: 440px;
+  --search-width: 288px;
+  --reading-column: 760px;
+
+  /* Type scale — single source of truth for font sizes. */
+  --font-size-2xs: 10px;
+  --font-size-xs: 11px;
+  --font-size-sm: 12px;
+  --font-size-md: 13px;
+  --font-size-base: 14px;
+  --font-size-lg: 15px;
+  --font-size-xl: 16px;
+  --font-size-2xl: 22px;
+  --font-size-3xl: 28px;
+
   --radius-none: 0;
   --radius-sm: 6px;
   --radius-md: 8px;

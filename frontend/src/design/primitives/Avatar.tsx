@@ -16,7 +16,8 @@ function initialsFrom(name: string | null, email: string): string {
 }
 
 export function Avatar({ name, email, size = "md", className = "" }: AvatarProps) {
-  const sizeCls = size === "sm" ? "h-6 w-6 text-[11px]" : "h-8 w-8 text-[12px]";
+  const sizeCls =
+    size === "sm" ? "h-avatar-sm w-avatar-sm text-xs" : "h-avatar-md w-avatar-md text-sm";
   const classes = [
     "inline-flex items-center justify-center rounded-pill",
     "bg-track text-text-primary font-medium select-none",

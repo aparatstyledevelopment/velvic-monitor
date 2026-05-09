@@ -57,7 +57,7 @@ export function MainLayout({ children }: { children: ReactNode }) {
           className="h-full flex flex-col border-l border-border bg-surface min-h-0"
           aria-label="Artifact stack"
         >
-          <header className="px-lg h-14 flex items-center shrink-0 border-b border-border">
+          <header className="px-lg h-bar flex items-center shrink-0 border-b border-border">
             <span className="t-meta">Sources</span>
           </header>
           <div className="flex-1 overflow-y-auto px-md py-md">

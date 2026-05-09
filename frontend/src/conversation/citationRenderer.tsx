@@ -95,7 +95,7 @@ export function CitationChip({ engineCallId, ordinal, onCite }: CitationChipProp
       <button
         type="button"
         onClick={() => onCite(engineCallId)}
-        className="inline-flex items-center justify-center align-baseline ml-xxs h-[16px] min-w-[16px] px-[4px] text-[10px] font-medium rounded-pill bg-track text-text-secondary hover:bg-text-primary hover:text-surface transition-colors duration-fast"
+        className="inline-flex items-center justify-center align-baseline ml-xxs h-lg min-w-lg px-xs text-2xs font-medium rounded-pill bg-track text-text-secondary hover:bg-text-primary hover:text-surface transition-colors duration-fast"
         data-engine-call-id={engineCallId}
         aria-label={`Open evidence ${ordinal}`}
       >
