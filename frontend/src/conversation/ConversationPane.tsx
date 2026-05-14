@@ -44,9 +44,15 @@ export function ConversationPane({ companyId, companyName }: ConversationPanePro
 
   const [pendingUser, setPendingUser] = useState<string | null>(null);
   const [streaming, setStreaming] = useState<ResponseCardData | null>(null);
+  // The thread the streaming UI belongs to. If the user switches threads
+  // mid-stream we still want the request to keep running (so the assistant
+  // turn lands when they come back), but we hide its UI from other threads.
+  const [streamingThreadId, setStreamingThreadId] = useState<string | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const restoreDraft = useComposer((s) => s.setDraft);
+  const showStreamingForThisThread =
+    streamingThreadId !== null && streamingThreadId === activeThreadId;
 
   const briefingQ = useQuery({
     queryKey: ["briefing", "latest", companyId],
@@ -93,6 +99,7 @@ export function ConversationPane({ companyId, companyName }: ConversationPanePro
         return;
       }
     }
+    setStreamingThreadId(threadId);
     setPendingUser(text);
     setStreaming({
       text: "",
@@ -192,6 +199,7 @@ export function ConversationPane({ companyId, companyName }: ConversationPanePro
       await queryClient.invalidateQueries({ queryKey: ["threads"] });
       setPendingUser(null);
       setStreaming(null);
+      setStreamingThreadId(null);
     }
   }
 
@@ -224,9 +232,13 @@ export function ConversationPane({ companyId, companyName }: ConversationPanePro
                 <ResponseCard key={t.id} data={responseCardFromTurn(t)} />
               ),
             )}
-          {pendingUser !== null && <UserCard text={pendingUser} />}
-          {streaming !== null && <ResponseCard data={streaming} />}
-          {sendError !== null && (
+          {pendingUser !== null && showStreamingForThisThread && (
+            <UserCard text={pendingUser} />
+          )}
+          {streaming !== null && showStreamingForThisThread && (
+            <ResponseCard data={streaming} />
+          )}
+          {sendError !== null && showStreamingForThisThread && (
             <Toast variant="negative" title="Couldn't send message">
               {sendError} Your text has been restored to the composer.
             </Toast>

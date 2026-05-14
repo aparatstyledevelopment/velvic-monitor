@@ -95,7 +95,7 @@ export function Composer({
           {candidates.length > 0 && (
             <SlashAutocomplete candidates={candidates} onPick={applyCandidate} />
           )}
-          <div className="flex items-end gap-sm rounded-pill border border-border bg-surface focus-within:border-text-primary transition-[border-color] duration-fast pl-md pr-2xs py-2xs">
+          <div className="flex items-end gap-sm rounded-2xl border border-border bg-surface focus-within:border-text-primary transition-[border-color] duration-fast pl-md pr-2xs py-2xs">
             <span
               aria-hidden="true"
               className="self-center text-text-tertiary shrink-0"
