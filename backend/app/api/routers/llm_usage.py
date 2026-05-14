@@ -1,9 +1,15 @@
 """LLM usage summary for the Settings page.
 
-Aggregates `llm_call_log` rows for the caller's org. Rows with NULL
-org_id (system pipeline calls — daily briefing composer + news
-summaries) are excluded so users see their own org's spend, not the
-shared batch cost.
+Aggregates `llm_call_log` rows the caller has reason to see:
+
+- their own org's calls (chat orchestrator, topic gate, thread title);
+- system-pipeline calls (briefing composer, news summary) for any
+  company the caller's org has access to via `org_company_access`.
+
+This second clause is what makes the daily briefing's Anthropic spend
+visible on the Settings page — those calls are made by Celery / the
+backfill admin command and don't carry an `org_id` themselves, but they
+DO carry the `company_id` they were generated for.
 """
 
 from __future__ import annotations
@@ -11,7 +17,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, status
-from sqlalchemy import func, select
+from sqlalchemy import ColumnElement, and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.schemas.llm_usage import (
@@ -20,11 +26,31 @@ from app.api.schemas.llm_usage import (
     LLMUsageSummary,
 )
 from app.auth.deps import current_user
-from app.auth.models import AppUser
+from app.auth.models import AppUser, OrgCompanyAccess
 from app.chat.models import LLMCallLog
 from app.core.db import get_session
 
 router = APIRouter(prefix="/llm/usage", tags=["llm_usage"])
+
+
+def _visibility_clause(user: AppUser) -> ColumnElement[bool]:
+    """Rows the caller has visibility into.
+
+    (1) anything tagged with their org_id directly, OR
+    (2) anything tagged with a company_id their org has access to —
+        covers briefing/news_summary written by the system pipeline
+        with no user/org context.
+    """
+    accessible_company_ids = select(OrgCompanyAccess.company_id).where(
+        OrgCompanyAccess.org_id == user.org_id
+    )
+    return or_(
+        LLMCallLog.org_id == user.org_id,
+        and_(
+            LLMCallLog.org_id.is_(None),
+            LLMCallLog.company_id.in_(accessible_company_ids),
+        ),
+    )
 
 
 @router.get(
@@ -36,7 +62,7 @@ async def usage_summary(
     user: AppUser = Depends(current_user),
     session: AsyncSession = Depends(get_session),
 ) -> LLMUsageSummary:
-    scope = LLMCallLog.org_id == user.org_id
+    scope = _visibility_clause(user)
 
     totals = (
         await session.execute(

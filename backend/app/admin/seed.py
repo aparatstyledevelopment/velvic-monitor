@@ -15,7 +15,7 @@ from dataclasses import dataclass
 
 from sqlalchemy import select
 
-from app.auth.models import Company, PeerRelationship
+from app.auth.models import Company, Org, OrgCompanyAccess, PeerRelationship
 from app.core.db import SessionLocal
 from app.ingestion.companies import upsert_company
 
@@ -137,11 +137,40 @@ async def seed_demo_data() -> None:
                     )
                 )
 
+        # Grant every existing org access to every seeded company. The
+        # first ticker (SEB-A — the headline) is marked is_primary so it
+        # auto-loads in the sidebar. Idempotent: skip rows already present.
+        orgs = (await session.execute(select(Org))).scalars().all()
+        access_added = 0
+        for org in orgs:
+            for ticker in bank_tickers:
+                company_id = rows[ticker].id
+                exists = await session.scalar(
+                    select(OrgCompanyAccess).where(
+                        OrgCompanyAccess.org_id == org.id,
+                        OrgCompanyAccess.company_id == company_id,
+                    )
+                )
+                if exists is not None:
+                    continue
+                session.add(
+                    OrgCompanyAccess(
+                        org_id=org.id,
+                        company_id=company_id,
+                        is_primary=(ticker == bank_tickers[0]),
+                    )
+                )
+                access_added += 1
+
         await session.commit()
         print(
             f"seeded {len(SEED)} demo tickers "
             f"+ {len(SEED) * (len(bank_tickers) - 1)} peer rows "
             f"(Nordic banks cohort)"
+        )
+        print(
+            f"granted org_company_access: {access_added} rows "
+            f"across {len(orgs)} org(s)"
         )
 
 

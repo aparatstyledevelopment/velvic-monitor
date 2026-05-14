@@ -67,11 +67,17 @@ export function Sidebar() {
         aria-label="Modules"
       >
         {MODULES.map((m) => {
-          const isActive =
-            m.enabled &&
-            (m.route === "/"
+          const matchesRoute =
+            m.route === "/"
               ? location.pathname === "/"
-              : location.pathname.startsWith(m.route));
+              : location.pathname === m.route ||
+                location.pathname.startsWith(`${m.route}/`);
+          const matchesPrefix = (m.activePrefixes ?? []).some(
+            (p) =>
+              location.pathname === p ||
+              location.pathname.startsWith(`${p}/`),
+          );
+          const isActive = m.enabled && (matchesRoute || matchesPrefix);
           const trailing =
             m.enabled && isActive ? (
               <IconButton

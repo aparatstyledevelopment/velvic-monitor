@@ -31,10 +31,19 @@ export interface ModuleSpec {
   icon: LucideIcon;
   route: string;
   enabled: boolean;
+  /** Extra path prefixes that should also mark this module active. */
+  activePrefixes?: readonly string[];
 }
 
 export const MODULES: readonly ModuleSpec[] = [
-  { key: "drivers", label: "Drivers", icon: Sparkles, route: "/", enabled: true },
+  {
+    key: "drivers",
+    label: "Drivers",
+    icon: Sparkles,
+    route: "/",
+    enabled: true,
+    activePrefixes: ["/drivers"],
+  },
   { key: "dashboard", label: "Dashboard", icon: LayoutDashboard, route: "/dashboard", enabled: false },
   { key: "shareholders", label: "Shareholders", icon: Users, route: "/shareholders", enabled: false },
   { key: "targeting", label: "Targeting", icon: Target, route: "/targeting", enabled: false },

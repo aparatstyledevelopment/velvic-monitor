@@ -3,6 +3,7 @@ import { ExternalLink } from "lucide-react";
 import { useMemo } from "react";
 import { useParams } from "react-router-dom";
 
+import { ApiError } from "../../api/client";
 import { driversApi, DRIVERS_DATA_SOURCES } from "../../api/drivers";
 import {
   Hairline,
@@ -54,8 +55,17 @@ export function DriversDataView() {
     <div className="flex flex-col">
       <TakeoverHeader title={definition.label} subtitle={definition.description} />
       <div className="px-xl pb-3xl max-w-reading mx-auto w-full flex flex-col gap-lg">
+        {activeCompanyId === null && (
+          <EmptyState
+            title="Pick a company"
+            body="Use the sidebar's company switcher to choose a name in scope, then come back here."
+          />
+        )}
         {dataQ.isLoading && (
           <p className="t-small text-text-tertiary">Loading data&hellip;</p>
+        )}
+        {dataQ.error !== null && dataQ.error !== undefined && (
+          <DataErrorState error={dataQ.error} />
         )}
         {data !== null && data !== undefined && (
           <>
@@ -73,6 +83,31 @@ export function DriversDataView() {
         )}
       </div>
     </div>
+  );
+}
+
+function DataErrorState({ error }: { error: unknown }) {
+  if (error instanceof ApiError) {
+    if (error.code === "no_briefing" || error.status === 404) {
+      return (
+        <EmptyState
+          title="No briefing yet"
+          body="The Drivers data view reads from the latest briefing's fact pack. Run `python -m app.admin.backfill` so the pipeline produces a briefing for this company, then refresh."
+        />
+      );
+    }
+    return (
+      <EmptyState
+        title={`Couldn't load (${error.status})`}
+        body={error.message}
+      />
+    );
+  }
+  return (
+    <EmptyState
+      title="Couldn't load data"
+      body="Try refreshing the page. If this keeps happening, check the backend logs."
+    />
   );
 }
 
@@ -411,7 +446,25 @@ function Table({
   );
 }
 
-function EmptyState({ label }: { label: string }) {
+function EmptyState({
+  label,
+  title,
+  body,
+}: {
+  label?: string;
+  title?: string;
+  body?: string;
+}) {
+  if (title !== undefined || body !== undefined) {
+    return (
+      <div className="rounded-lg border border-border bg-surface px-lg py-md flex flex-col gap-2xs">
+        {title !== undefined && <span className="t-label">{title}</span>}
+        {body !== undefined && (
+          <p className="t-small text-text-tertiary">{body}</p>
+        )}
+      </div>
+    );
+  }
   return (
     <p className="t-small text-text-tertiary rounded-lg border border-border bg-surface px-lg py-md">
       {label}
