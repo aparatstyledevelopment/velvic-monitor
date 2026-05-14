@@ -14,6 +14,7 @@ import {
 import { Button } from "../design/primitives";
 import { useArtifacts } from "../state/artifacts";
 import { useCompanies } from "../state/companies";
+import { useComposer } from "../state/composer";
 import { usePrefs } from "../state/prefs";
 import { useThreads } from "../state/threads";
 
@@ -44,6 +45,8 @@ export function ConversationPane({ companyId, companyName }: ConversationPanePro
   const [pendingUser, setPendingUser] = useState<string | null>(null);
   const [streaming, setStreaming] = useState<ResponseCardData | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
+  const restoreDraft = useComposer((s) => s.setDraft);
 
   const briefingQ = useQuery({
     queryKey: ["briefing", "latest", companyId],
@@ -74,12 +77,21 @@ export function ConversationPane({ companyId, companyName }: ConversationPanePro
   }
 
   async function sendMessage(text: string) {
+    setSendError(null);
     let threadId = activeThreadId;
     if (threadId === null) {
-      const created = await chatApi.create(companyId, deriveThreadTitle(text));
-      threadId = created.id;
-      setActiveThreadId(threadId);
-      await queryClient.invalidateQueries({ queryKey: ["threads"] });
+      try {
+        const created = await chatApi.create(companyId, deriveThreadTitle(text));
+        threadId = created.id;
+        setActiveThreadId(threadId);
+        await queryClient.invalidateQueries({ queryKey: ["threads"] });
+      } catch (err) {
+        // Couldn't even create the thread — restore the draft so the
+        // user isn't silently stranded with their text gone.
+        restoreDraft(text);
+        setSendError(describeNetworkError(err));
+        return;
+      }
     }
     setPendingUser(text);
     setStreaming({
@@ -167,6 +179,14 @@ export function ConversationPane({ companyId, companyName }: ConversationPanePro
           );
         }
       }
+    } catch (err) {
+      // Most commonly: TypeError "Failed to fetch" when the network drops
+      // mid-stream, or the dev proxy hiccups. The backend may or may not
+      // have persisted the user turn — invalidating the thread query in
+      // `finally` lets the refresh tell us; meanwhile restore the draft
+      // so the user isn't left with their message vanished.
+      restoreDraft(text);
+      setSendError(describeNetworkError(err));
     } finally {
       await queryClient.invalidateQueries({ queryKey: ["thread", threadId] });
       await queryClient.invalidateQueries({ queryKey: ["threads"] });
@@ -206,6 +226,11 @@ export function ConversationPane({ companyId, companyName }: ConversationPanePro
             )}
           {pendingUser !== null && <UserCard text={pendingUser} />}
           {streaming !== null && <ResponseCard data={streaming} />}
+          {sendError !== null && (
+            <Toast variant="negative" title="Couldn't send message">
+              {sendError} Your text has been restored to the composer.
+            </Toast>
+          )}
         </div>
       </div>
       <Composer disabled={streaming !== null} onSubmit={handleSubmit} />
@@ -277,4 +302,10 @@ function deriveThreadTitle(text: string, maxLen = 60): string {
   if (cleaned.length === 0) return "New conversation";
   if (cleaned.length <= maxLen) return cleaned;
   return `${cleaned.slice(0, maxLen - 1).trimEnd()}…`;
+}
+
+function describeNetworkError(err: unknown): string {
+  if (err instanceof TypeError) return "The server is unreachable.";
+  if (err instanceof Error) return err.message;
+  return "Unknown error.";
 }
