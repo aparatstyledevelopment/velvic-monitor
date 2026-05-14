@@ -58,7 +58,7 @@ export function ArtifactCard({ envelope }: ArtifactCardProps) {
             {response.sql}
           </CodeBlock>
         ) : (
-          <CodeBlock ariaLabel="Engine call">
+          <CodeBlock ariaLabel="Engine call" language="call">
             {renderFunctionCall(envelope.tool_name, envelope.params)}
           </CodeBlock>
         )}

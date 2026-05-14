@@ -98,7 +98,7 @@ function ThreadRow({
           <span className="flex-1 min-w-0 flex flex-col">
             <span
               className={[
-                "truncate text-md",
+                "truncate text-sm",
                 active ? "text-text-primary font-medium" : "text-text-secondary",
               ].join(" ")}
             >

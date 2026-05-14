@@ -180,7 +180,7 @@ export function ConversationPane({ companyId, companyName }: ConversationPanePro
   void setActiveCompanyId;
 
   return (
-    <div className="flex-1 min-w-0 flex flex-col">
+    <div className="flex-1 min-w-0 min-h-0 flex flex-col">
       <header className="lg:hidden flex items-center justify-between px-lg py-md border-b border-border">
         <h1 className="t-section">Drivers</h1>
         <IconButton label="Open sources" onClick={openMobile}>

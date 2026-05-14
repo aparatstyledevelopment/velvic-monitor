@@ -407,6 +407,13 @@ def _build_options(
     allowed = [] if disable_tools else allowed_tool_names(modules)
     return ClaudeAgentOptions(
         system_prompt=system_prompt,
+        # Strip out every Claude-Code-default tool (Read/Bash/ToolSearch/...).
+        # The agent should only see our engine MCP — anything else is noise
+        # that ends up as "ToolSearch failed" chips in the chat UI.
+        tools=[],
+        # Ignore project / user-level MCP config (.mcp.json etc.); only our
+        # in-process engine server should be reachable.
+        strict_mcp_config=True,
         mcp_servers={"engine": mcp_server},
         allowed_tools=allowed,
         max_turns=MAX_TOOL_CALLS,
@@ -433,10 +440,13 @@ async def _events_from_sdk_message(
         for block in msg.content:
             if isinstance(block, TextBlock):
                 if block.text:
+                    # Buffer only — we do NOT stream text_delta during the
+                    # SDK loop. The text is validated (citations parsed +
+                    # auto-grounded + optional strict retry) before any
+                    # text_delta reaches the frontend; otherwise the user
+                    # sees a long uncited draft pop in and then get
+                    # replaced by the corrected version.
                     state.fallback_text_parts.append(block.text)
-                    yield CompletionEvent(
-                        type="text_delta", payload={"text": block.text}
-                    )
             elif isinstance(block, ToolUseBlock):
                 yield CompletionEvent(
                     type="tool_call",

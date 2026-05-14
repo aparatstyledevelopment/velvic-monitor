@@ -39,7 +39,7 @@ export const SidebarNavItem = forwardRef<HTMLButtonElement, SidebarNavItemProps>
         disabled={isDisabled}
         aria-current={active ? "page" : undefined}
         className={[
-          "group relative flex w-full items-center gap-sm",
+          "group relative flex w-full items-center gap-sm shrink-0",
           "px-md h-control-lg rounded-md text-left",
           "transition-[background-color,color] duration-fast ease-standard",
           "focus:outline-none focus-visible:ring-2 focus-visible:ring-text-primary focus-visible:ring-offset-1 focus-visible:ring-offset-surface",
