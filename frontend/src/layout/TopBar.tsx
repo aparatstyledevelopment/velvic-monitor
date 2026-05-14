@@ -58,13 +58,13 @@ export function TopBar() {
   const ret = formatReturn(data?.return_pct);
   const priceCallId = data?.price_engine_call_id ?? null;
 
-  const loadById = useArtifacts((s) => s.loadById);
+  const openSingle = useArtifacts((s) => s.openSingle);
   const openPaneMobile = useArtifacts((s) => s.openPaneMobile);
 
   async function openPriceSource() {
     if (priceCallId === null) return;
     openPaneMobile();
-    await loadById(priceCallId);
+    await openSingle(priceCallId);
   }
 
   const toneClass =

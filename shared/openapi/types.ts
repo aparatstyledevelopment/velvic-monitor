@@ -315,7 +315,7 @@ export interface components {
             /** Prompt Tokens */
             prompt_tokens: number | null;
             /** Smart Chips */
-            smart_chips: string[];
+            smart_chips: components["schemas"]["SmartChip"][];
         };
         /** ChatThreadCreate */
         ChatThreadCreate: {
@@ -645,6 +645,19 @@ export interface components {
             org_name: string;
             /** Password */
             password: string;
+        };
+        /**
+         * SmartChip
+         * @description One follow-up suggestion on the briefing card.
+         *
+         *     `title` is a <=4-word label rendered on the chip; `prompt` is the
+         *     longer question that gets prefilled into the composer on click.
+         */
+        SmartChip: {
+            /** Prompt */
+            prompt: string;
+            /** Title */
+            title: string;
         };
         /** ValidationError */
         ValidationError: {

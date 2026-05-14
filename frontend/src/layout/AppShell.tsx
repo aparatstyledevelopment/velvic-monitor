@@ -64,10 +64,9 @@ export function AppShell() {
  * pinned it open.
  */
 export function MainLayout({ children }: { children: ReactNode }) {
-  const stackLength = useArtifacts((s) => s.stack.length);
-  const loadingCount = useArtifacts((s) => s.loadingIds.size);
+  const entriesLength = useArtifacts((s) => s.entries.length);
   const clear = useArtifacts((s) => s.clear);
-  const showArtifact = stackLength > 0 || loadingCount > 0;
+  const showArtifact = entriesLength > 0;
   return (
     <PanelGroup
       direction="horizontal"

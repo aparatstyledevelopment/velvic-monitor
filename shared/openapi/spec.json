@@ -83,7 +83,7 @@
           },
           "smart_chips": {
             "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/SmartChip"
             },
             "title": "Smart Chips",
             "type": "array"
@@ -912,6 +912,25 @@
           "org_name"
         ],
         "title": "SignupRequest",
+        "type": "object"
+      },
+      "SmartChip": {
+        "description": "One follow-up suggestion on the briefing card.\n\n`title` is a <=4-word label rendered on the chip; `prompt` is the\nlonger question that gets prefilled into the composer on click.",
+        "properties": {
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "prompt"
+        ],
+        "title": "SmartChip",
         "type": "object"
       },
       "ValidationError": {

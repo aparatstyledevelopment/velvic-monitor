@@ -28,10 +28,13 @@ def test_multiple_citations_share_text() -> None:
     assert {s.engine_call_id for s in result.spans} == {"ec_aaaaaa", "ec_bbbbbb"}
 
 
-def test_unknown_citation_id_raises() -> None:
-    # ids must be valid hex; the unknown is hex-shaped but not in the allow-list.
-    with pytest.raises(ValueError):
-        parse_citations("close 1.2% [ec_deadbeef]", {"ec_cafebabe"})
+def test_unknown_citation_id_is_dropped_not_raised() -> None:
+    # An unknown hex-shaped id is logged + dropped rather than raised:
+    # one fabricated citation must not break the whole turn.
+    result = parse_citations("close 1.2% [ec_deadbeef]", {"ec_cafebabe"})
+    assert "[ec_deadbeef]" not in result.text
+    assert "1.2%" in result.text
+    assert result.spans == []
 
 
 def test_uncited_numeric_detected() -> None:

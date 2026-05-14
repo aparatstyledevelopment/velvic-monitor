@@ -1,5 +1,5 @@
 import type { ChatTurnOut } from "../api/chat";
-import { Card } from "../design/primitives";
+import { Card, PillButton } from "../design/primitives";
 import { useArtifacts } from "../state/artifacts";
 
 import { renderWithCitations, type CitationSpan } from "./citationRenderer";
@@ -39,28 +39,57 @@ interface ResponseCardProps {
 }
 
 export function ResponseCard({ data }: ResponseCardProps) {
-  const loadById = useArtifacts((s) => s.loadById);
+  const openSingle = useArtifacts((s) => s.openSingle);
+  const openList = useArtifacts((s) => s.openList);
+  const openUncited = useArtifacts((s) => s.openUncited);
   const openMobile = useArtifacts((s) => s.openPaneMobile);
   const isRefusal = data.finish_reason === "refusal";
 
   async function onCite(engineCallId: string) {
     openMobile();
-    await loadById(engineCallId);
+    await openSingle(engineCallId);
+  }
+
+  function onUncited(value: string) {
+    openMobile();
+    openUncited(value);
+  }
+
+  async function onOpenAllSources() {
+    const ids = Array.from(
+      new Set(data.citation_spans.map((s) => s.engine_call_id)),
+    );
+    if (ids.length === 0) return;
+    openMobile();
+    await openList(ids);
   }
 
   const hasCitations = data.citation_spans.length > 0;
 
   const header =
     isRefusal || data.streaming || hasCitations ? (
-      <span className="t-meta flex items-center gap-sm">
-        {isRefusal ? (
-          "Off-topic"
-        ) : data.streaming ? (
-          <TypingIndicator />
-        ) : (
-          "Assistant"
+      <>
+        <span className="t-meta flex items-center gap-sm">
+          {isRefusal ? (
+            "Off-topic"
+          ) : data.streaming ? (
+            <TypingIndicator />
+          ) : (
+            "Assistant"
+          )}
+        </span>
+        {hasCitations && !data.streaming && (
+          <PillButton
+            tone="inverse"
+            onClick={onOpenAllSources}
+            aria-label={`Open all ${
+              new Set(data.citation_spans.map((s) => s.engine_call_id)).size
+            } sources`}
+          >
+            Sources
+          </PillButton>
         )}
-      </span>
+      </>
     ) : null;
 
   const bodyClasses = isRefusal
@@ -80,6 +109,7 @@ export function ResponseCard({ data }: ResponseCardProps) {
             text: data.text,
             spans: data.citation_spans,
             onCite,
+            onUncited,
           })}
         </p>
       )}
@@ -173,4 +203,3 @@ function TypingIndicator() {
     </span>
   );
 }
-

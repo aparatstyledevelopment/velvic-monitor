@@ -14,7 +14,11 @@ const sampleBriefing: BriefingOut = {
   as_of_date: "2026-04-29",
   narrative:
     "VOLV-B closed at 247.20 SEK, down 2.1% on the session, against an OMX Stockholm PI return of +0.4%. The relative underperformance lines up with the morning's downward revision to FY26 truck guidance.",
-  smart_chips: ["MAR-flagged", "Sector lag", "Guidance revision"],
+  smart_chips: [
+    { title: "MAR-flagged", prompt: "Any MAR-flagged items in the last 30 days?" },
+    { title: "Sector lag", prompt: "Which sector peers underperformed today?" },
+    { title: "Guidance revision", prompt: "Walk through the FY26 truck guidance change." },
+  ],
   citation_spans: [
     { start_char: 19, end_char: 25, engine_call_id: "ec_a" },
     { start_char: 31, end_char: 35, engine_call_id: "ec_b" },

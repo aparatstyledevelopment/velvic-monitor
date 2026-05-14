@@ -24,12 +24,31 @@ def test_extract_invalid_json_falls_back() -> None:
 def test_parse_response_with_citations_and_chips() -> None:
     raw = (
         '{"narrative": "VOLV-B closed -2.1% [ec_aaaaaa].", '
-        '"smart_chips": ["Why?", "Peer comparison?"]}'
+        '"smart_chips": ['
+        '{"title": "Why?", "prompt": "Why did VOLV-B move?"},'
+        '{"title": "Peer compare", "prompt": "How did the peer group fare?"}'
+        ']}'
     )
     out = _parse_briefing_response(raw, valid_ids={"ec_aaaaaa"})
     assert out.narrative == "VOLV-B closed -2.1%."
-    assert out.smart_chips == ["Why?", "Peer comparison?"]
+    assert out.smart_chips == [
+        {"title": "Why?", "prompt": "Why did VOLV-B move?"},
+        {"title": "Peer compare", "prompt": "How did the peer group fare?"},
+    ]
     assert not out.has_uncited_numerics
+
+
+def test_parse_response_upgrades_legacy_string_chips() -> None:
+    raw = (
+        '{"narrative": "ok", '
+        '"smart_chips": ["Did peers move similarly today?"]}'
+    )
+    out = _parse_briefing_response(raw, valid_ids=set())
+    assert len(out.smart_chips) == 1
+    chip = out.smart_chips[0]
+    assert chip["prompt"] == "Did peers move similarly today?"
+    assert len(chip["title"].split()) <= 4
+    assert chip["title"]  # non-empty
 
 
 def test_parse_response_with_uncited_numeric_flagged() -> None:

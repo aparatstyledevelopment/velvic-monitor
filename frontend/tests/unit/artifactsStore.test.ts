@@ -1,19 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { useArtifacts, type EngineCallEnvelope } from "../../src/state/artifacts";
-
-const env = (id: string): EngineCallEnvelope => ({
-  engine_call_id: id,
-  tool_name: "get_price_move",
-  module: "drivers",
-  params: {},
-  data: {},
-  sources: [],
-  status: "ok",
-  latency_ms: 12,
-  engine_version: "v1",
-  computed_at: "2026-04-29T17:00:00Z",
-});
+import { useArtifacts } from "../../src/state/artifacts";
 
 describe("artifacts store", () => {
   beforeEach(() => {
@@ -21,17 +8,17 @@ describe("artifacts store", () => {
     useArtifacts.getState().closePaneMobile();
   });
 
-  it("pushes a new envelope onto the stack", () => {
-    useArtifacts.getState().push(env("ec_a"));
-    expect(useArtifacts.getState().stack.map((e) => e.engine_call_id)).toEqual(["ec_a"]);
-  });
-
-  it("a second push replaces the active envelope (single-card pane)", () => {
-    useArtifacts.getState().push(env("ec_a"));
-    useArtifacts.getState().push(env("ec_b"));
-    expect(useArtifacts.getState().stack.map((e) => e.engine_call_id)).toEqual([
-      "ec_b",
-    ]);
+  it("openUncited puts a placeholder entry in the pane in single mode", () => {
+    useArtifacts.getState().openUncited("2.1%");
+    const state = useArtifacts.getState();
+    expect(state.viewMode).toBe("single");
+    expect(state.entries).toHaveLength(1);
+    const entry = state.entries[0];
+    expect(entry?.kind).toBe("uncited");
+    if (entry?.kind === "uncited") {
+      expect(entry.value).toBe("2.1%");
+      expect(entry.expanded).toBe(true);
+    }
   });
 
   it("controls mobile pane open state", () => {
@@ -40,5 +27,23 @@ describe("artifacts store", () => {
     expect(useArtifacts.getState().paneOpenMobile).toBe(true);
     useArtifacts.getState().closePaneMobile();
     expect(useArtifacts.getState().paneOpenMobile).toBe(false);
+  });
+
+  it("clear empties entries and resets to single view", () => {
+    useArtifacts.getState().openUncited("1,234.5");
+    expect(useArtifacts.getState().entries).toHaveLength(1);
+    useArtifacts.getState().clear();
+    expect(useArtifacts.getState().entries).toEqual([]);
+    expect(useArtifacts.getState().viewMode).toBe("single");
+  });
+
+  it("toggleExpanded flips the expanded flag on the matching entry", () => {
+    useArtifacts.getState().openUncited("3.4%");
+    const initial = useArtifacts.getState().entries[0];
+    expect(initial?.expanded).toBe(true);
+    if (initial !== undefined && initial.kind === "uncited") {
+      useArtifacts.getState().toggleExpanded(initial.key);
+    }
+    expect(useArtifacts.getState().entries[0]?.expanded).toBe(false);
   });
 });

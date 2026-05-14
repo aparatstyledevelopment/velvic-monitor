@@ -1,27 +1,46 @@
 import { useArtifacts } from "../state/artifacts";
 
-import { ArtifactCard } from "./ArtifactCard";
+import { ArtifactCard, ArtifactRow, UncitedCard } from "./ArtifactCard";
 
 export function ArtifactStack() {
-  const stack = useArtifacts((s) => s.stack);
-  const loadingIds = useArtifacts((s) => s.loadingIds);
-  const loading = Array.from(loadingIds);
+  const entries = useArtifacts((s) => s.entries);
+  const viewMode = useArtifacts((s) => s.viewMode);
+  const toggleExpanded = useArtifacts((s) => s.toggleExpanded);
 
-  if (stack.length === 0 && loading.length === 0) {
+  if (entries.length === 0) {
     return (
       <p className="t-small text-text-tertiary">
-        Click a citation chip to inspect the deterministic engine call behind a number.
+        Click a citation chip to inspect the deterministic engine call behind a
+        number, or use the Source button to browse every source for a response.
       </p>
     );
   }
+
+  if (viewMode === "single") {
+    const entry = entries[0];
+    if (entry === undefined) return null;
+    if (entry.kind === "uncited") {
+      return <UncitedCard value={entry.value} />;
+    }
+    if (entry.envelope === null) {
+      return <ArtifactSkeleton engineCallId={entry.engine_call_id} />;
+    }
+    return <ArtifactCard envelope={entry.envelope} />;
+  }
+
   return (
-    <div className="flex flex-col gap-md">
-      {loading.map((id) => (
-        <ArtifactSkeleton key={`loading-${id}`} engineCallId={id} />
-      ))}
-      {stack.map((envelope) => (
-        <ArtifactCard key={envelope.engine_call_id} envelope={envelope} />
-      ))}
+    <div className="flex flex-col gap-xs">
+      {entries.map((entry) =>
+        entry.kind === "uncited" ? (
+          <UncitedCard key={entry.key} value={entry.value} />
+        ) : (
+          <ArtifactRow
+            key={entry.engine_call_id}
+            entry={entry}
+            onToggle={() => toggleExpanded(entry.engine_call_id)}
+          />
+        ),
+      )}
     </div>
   );
 }
@@ -34,22 +53,14 @@ function ArtifactSkeleton({ engineCallId }: { engineCallId: string }) {
       aria-live="polite"
       aria-label={`Loading source ${engineCallId.slice(-8)}`}
     >
-      {/* Header: title + subtitle */}
       <div className="flex flex-col gap-2xs">
         <span className="h-xl w-1/2 rounded-md bg-surface-muted animate-pulse" />
         <span className="h-md w-1/3 rounded-md bg-surface-muted animate-pulse" />
       </div>
-      {/* Description paragraph */}
       <div className="flex flex-col gap-2xs">
         <span className="h-md w-full rounded-pill bg-surface-muted animate-pulse" />
         <span className="h-md w-4/5 rounded-pill bg-surface-muted animate-pulse" />
       </div>
-      {/* Query block */}
-      <div className="flex flex-col gap-xs">
-        <span className="h-sm w-1/6 rounded-pill bg-surface-muted animate-pulse" />
-        <span className="h-control-xl w-full rounded-md bg-surface-muted animate-pulse" />
-      </div>
-      {/* Response block */}
       <div className="flex flex-col gap-xs">
         <span className="h-sm w-1/6 rounded-pill bg-surface-muted animate-pulse" />
         <span className="h-control-xl w-full rounded-md bg-surface-muted animate-pulse" />

@@ -26,12 +26,12 @@ export function DriversDataView() {
     enabled: activeCompanyId !== null && source !== undefined,
   });
 
-  const loadById = useArtifacts((s) => s.loadById);
+  const openSingle = useArtifacts((s) => s.openSingle);
   const openMobile = useArtifacts((s) => s.openPaneMobile);
 
   async function openSource(engineCallId: string) {
     openMobile();
-    await loadById(engineCallId);
+    await openSingle(engineCallId);
   }
 
   if (definition === null) {

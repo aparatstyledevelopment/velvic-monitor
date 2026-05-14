@@ -14,6 +14,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from app.core.logging import logger
+
 # Match the marker plus a single optional leading whitespace so the
 # rendered text doesn't carry an orphan space before punctuation.
 CITATION_RE = re.compile(r"[ \t]?\[(?P<id>ec_[a-f0-9]{6,})\]")
@@ -52,22 +54,26 @@ def parse_citations(text: str, valid_ids: set[str]) -> ParseResult:
     """Extract citation markers, return rendered text + structured spans.
 
     Each marker `[ec_xxx]` is consumed; the substring it cites is the
-    nearest preceding number-shaped token. Unknown ids raise ValueError.
+    nearest preceding number-shaped token. Markers referencing an
+    unknown id are dropped from the output (the trailing number stays
+    visible) and logged — never raised — because a single fabricated
+    marker should not break the whole turn.
     """
     spans: list[CitationSpan] = []
     out_chars: list[str] = []
     consumed = 0
     pos = 0
     for m in CITATION_RE.finditer(text):
-        # Append everything up to the marker (translating offsets).
         out_chars.append(text[pos : m.start()])
         ec_id = m.group("id")
         if ec_id not in valid_ids:
-            raise ValueError(f"unknown engine_call_id: {ec_id}")
+            logger.warning("parse_citations_unknown_id", engine_call_id=ec_id)
+            consumed += m.end() - m.start()
+            pos = m.end()
+            continue
         cited = _find_cited_fragment(text, m.start())
         if cited is not None:
             frag_start, frag_end = cited
-            # Translate to output coordinates by subtracting consumed marker chars.
             spans.append(
                 CitationSpan(
                     start_char=frag_start - consumed,

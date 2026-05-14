@@ -314,7 +314,7 @@ async def generate_briefing(
 @dataclass(frozen=True)
 class ParsedBriefing:
     narrative: str
-    smart_chips: list[str]
+    smart_chips: list[dict[str, str]]  # [{"title": ..., "prompt": ...}]
     spans: list[Any]
     has_uncited_numerics: bool
     uncited: list[tuple[int, int, str]]
@@ -323,10 +323,7 @@ class ParsedBriefing:
 def _parse_briefing_response(raw: str, valid_ids: set[str]) -> ParsedBriefing:
     payload = _extract_json(raw)
     narrative_raw = payload.get("narrative") or ""
-    chips = payload.get("smart_chips") or []
-    if not isinstance(chips, list):
-        chips = []
-    chips = [str(c) for c in chips][:5]
+    chips = _normalise_smart_chips(payload.get("smart_chips"))
 
     parsed = parse_citations(narrative_raw, valid_ids)
     uncited = find_uncited_numerics(parsed.text, parsed.spans)
@@ -337,6 +334,65 @@ def _parse_briefing_response(raw: str, valid_ids: set[str]) -> ParsedBriefing:
         has_uncited_numerics=bool(uncited),
         uncited=uncited,
     )
+
+
+def _normalise_smart_chips(raw: Any) -> list[dict[str, str]]:
+    """Accept either the new {title, prompt} shape or a list of raw prompt strings.
+
+    Strings are upgraded into chips by deriving a <=4-word title from the
+    prompt itself; this keeps legacy briefing rows renderable while we
+    migrate to the explicit-title shape.
+    """
+    if not isinstance(raw, list):
+        return []
+    out: list[dict[str, str]] = []
+    for item in raw[:5]:
+        if isinstance(item, dict):
+            title = str(item.get("title", "")).strip()
+            prompt = str(item.get("prompt", "")).strip()
+            if not prompt and title:
+                prompt = title
+            if not title and prompt:
+                title = _derive_short_title(prompt)
+            if title and prompt:
+                out.append(
+                    {"title": _trim_words(title, 4), "prompt": prompt}
+                )
+        elif isinstance(item, str):
+            prompt = item.strip()
+            if prompt:
+                out.append(
+                    {"title": _derive_short_title(prompt), "prompt": prompt}
+                )
+    return out
+
+
+def _trim_words(text: str, max_words: int) -> str:
+    words = text.split()
+    if len(words) <= max_words:
+        return text
+    return " ".join(words[:max_words])
+
+
+_LEAD_INTERROGATIVES = (
+    "what is ", "what are ", "what's ", "what ",
+    "why ", "how ", "who ", "any ", "show me ",
+    "tell me ", "compare ", "list ", "find ",
+)
+
+
+def _derive_short_title(prompt: str) -> str:
+    body = prompt.strip().rstrip("?.!,;:")
+    lower = body.lower()
+    for lead in _LEAD_INTERROGATIVES:
+        if lower.startswith(lead):
+            body = body[len(lead) :]
+            break
+    body = body.strip()
+    if not body:
+        body = prompt.strip().rstrip("?.!,;:")
+    body = body[:1].upper() + body[1:]
+    return _trim_words(body, 4)
 
 
 def _extract_json(s: str) -> dict[str, Any]:

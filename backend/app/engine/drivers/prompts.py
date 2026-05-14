@@ -35,8 +35,17 @@ Produce ONLY a valid JSON object matching this schema. No prose outside the JSON
 {
   "narrative": "<2-4 sentence headline narrative connecting the move to its most
                 likely drivers, with citations>",
-  "smart_chips": ["<3-5 follow-up questions a Swedish IR director would ask>"]
+  "smart_chips": [
+    {
+      "title": "<≤4-word chip label, sentence case, no trailing punctuation>",
+      "prompt": "<full follow-up question a Swedish IR director would ask>"
+    }
+  ]
 }
+
+Output 3-5 smart_chips. Each chip's `title` must be at most 4 words; the
+`prompt` is the longer question that will be prefilled into the composer
+when the user clicks the chip.
 """
 
 BRIEFING_SYSTEM_PROMPT_STRICT = (
