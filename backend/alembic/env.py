@@ -68,6 +68,7 @@ def _sanitized(url: str) -> str:
 async def run_migrations_online() -> None:
     settings = get_settings()
     print(f"[alembic] connecting to {_sanitized(settings.database_url)}", flush=True)
+    _log_discovered_revisions()
     cfg = config.get_section(config.config_ini_section) or {}
     cfg["sqlalchemy.url"] = settings.database_url
     connectable = async_engine_from_config(
@@ -78,6 +79,34 @@ async def run_migrations_online() -> None:
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)
     await connectable.dispose()
+
+
+def _log_discovered_revisions() -> None:
+    """One-shot listing of every revision alembic can see in this image.
+
+    Production failure mode we hit once: DB at revision X, slug missing
+    the file for X, alembic raises "Can't locate revision identified
+    by X". With this log the next failure tells you whether the slug
+    is stale (no files) or the DB drifted (file present, DB at unknown
+    revision).
+    """
+    from alembic.script import ScriptDirectory
+
+    try:
+        sd = ScriptDirectory.from_config(config)
+        revs = [
+            f"{r.revision} (down={r.down_revision})"
+            for r in sd.walk_revisions()
+        ]
+        heads = sd.get_heads()
+    except Exception as exc:  # noqa: BLE001 — diagnostic only
+        print(f"[alembic] could not enumerate revisions: {exc}", flush=True)
+        return
+    print(
+        f"[alembic] discovered {len(revs)} migrations; "
+        f"heads={list(heads)}; chain={revs}",
+        flush=True,
+    )
 
 
 if context.is_offline_mode():
