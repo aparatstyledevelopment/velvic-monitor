@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import sys
 from collections.abc import Awaitable, Callable
 from datetime import date, timedelta
 from typing import Any
@@ -25,6 +26,27 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.models import Company
 from app.core.db import SessionLocal
 from app.core.logging import logger
+
+
+def _quiet_loguru() -> None:
+    """Replace the default loguru sink with a one-line WARNING+ format.
+
+    Backfill is a CLI; its `print()` lines are the user-facing output.
+    The structured JSON-ish INFO lines from crawlers + helpers were
+    drowning that out, so we route loguru through a minimal formatter
+    that only surfaces real problems (warnings + errors), without the
+    timestamp/module prefix.
+    """
+    logger.remove()
+    logger.add(
+        sys.stderr,
+        format="<level>{level: <7}</level> | {message}",
+        level="WARNING",
+        colorize=True,
+    )
+
+
+_quiet_loguru()
 from app.crawlers.base import DateRange
 from app.crawlers.company_ir_rss import CompanyIrRssCrawler
 from app.crawlers.fred import FredCrawler
@@ -75,14 +97,12 @@ async def _safe_step(
         await runner()
     except Exception as e:  # noqa: BLE001 -- one bad source must not kill the rest
         await session.rollback()
-        logger.warning("backfill_step_failed", step=label, error=str(e))
         print(f"{label:17}: FAILED — {e}")
         return False
     await session.commit()
     after = await _snapshot(session, tables) if tables else {}
     summary = _format_delta(before, after) if tables else "ok"
     print(f"{label:17}: {summary}")
-    logger.info("backfill_step_ok", step=label)
     return True
 
 
@@ -148,20 +168,9 @@ async def backfill(*, days: int = 90) -> None:
                     f"briefing[{ticker} {as_of.isoformat()}]: "
                     f"{narrative_len} chars, {chip_count} chips"
                 )
-                logger.info(
-                    "backfill_briefing_ok",
-                    company=ticker,
-                    as_of=as_of.isoformat(),
-                )
             except Exception as e:
                 await session.rollback()
                 print(f"briefing[{ticker} {as_of.isoformat()}]: FAILED — {e}")
-                logger.exception(
-                    "backfill_briefing_failed",
-                    company=ticker,
-                    as_of=as_of.isoformat(),
-                    error=str(e),
-                )
 
         engine_calls_total = await _count(session, "engine_call")
         print(

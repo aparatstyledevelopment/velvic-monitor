@@ -56,11 +56,17 @@ async def call_messages(
     system: str,
     user: str,
     max_tokens: int = 1024,
-    temperature: float = 0.0,
+    temperature: float | None = None,
     model: str | None = None,
     http_client: httpx.AsyncClient | None = None,
 ) -> MessagesResponse:
     """Single-turn POST /v1/messages with a system + user prompt.
+
+    `temperature` is omitted from the request body when None. Required
+    for Claude 4.7+ models which reject any explicit temperature/top_p
+    /top_k value (they're "deprecated" — the recommended migration is
+    to drop the field entirely and let the model decode at its
+    documented default).
 
     Raises RuntimeError when ANTHROPIC_API_KEY is unset.
     On 4xx/5xx from Anthropic, logs the response body before re-raising
@@ -75,10 +81,11 @@ async def call_messages(
     body: dict[str, object] = {
         "model": chosen_model,
         "max_tokens": max_tokens,
-        "temperature": temperature,
         "system": system,
         "messages": [{"role": "user", "content": user}],
     }
+    if temperature is not None:
+        body["temperature"] = temperature
     headers = {
         "x-api-key": api_key,
         "anthropic-version": "2023-06-01",

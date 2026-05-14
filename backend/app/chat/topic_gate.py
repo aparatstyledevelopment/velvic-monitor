@@ -55,7 +55,6 @@ async def classify(
             ),
             user=message,
             max_tokens=CLASSIFIER_MAX_TOKENS,
-            temperature=0.0,
             model=model,
         )
     except RuntimeError as e:

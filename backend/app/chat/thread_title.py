@@ -44,7 +44,6 @@ async def generate_title(
                 assistant=assistant_text[:600],
             ),
             max_tokens=24,
-            temperature=0.0,
         )
     except Exception as e:  # network, parse, missing key — all non-fatal
         logger.warning("thread_title_failed", error=str(e))

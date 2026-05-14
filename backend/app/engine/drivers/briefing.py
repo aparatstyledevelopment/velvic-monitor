@@ -75,7 +75,6 @@ async def get_press_release_summary(
                     body_text=item.body_text[:4000],
                 ),
                 max_tokens=80,
-                temperature=0.0,
             )
             await record_call(
                 session,
@@ -219,7 +218,6 @@ async def generate_briefing(
         system=BRIEFING_SYSTEM_PROMPT,
         user=user_prompt,
         max_tokens=1500,
-        temperature=0.2,
         model=model,
     )
     await record_call(
@@ -247,7 +245,6 @@ async def generate_briefing(
             system=BRIEFING_SYSTEM_PROMPT_STRICT,
             user=user_prompt,
             max_tokens=1500,
-            temperature=0.0,
             model=model,
         )
         await record_call(
