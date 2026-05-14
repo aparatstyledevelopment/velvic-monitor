@@ -61,21 +61,19 @@ export function BriefingCard({ briefing, companyName }: BriefingCardProps) {
   return (
     <Card header={header}>
       {collapsed && preview.length > 0 && (
-        <p className="t-body text-text-secondary">{preview}</p>
+        <p className="t-body text-text-secondary leading-relaxed">{preview}</p>
       )}
       {!collapsed && (
         <div className="flex flex-col gap-lg">
-          <p className="t-body whitespace-pre-wrap">
-            {renderWithCitations({
-              text: briefing.narrative,
-              spans: briefing.citation_spans,
-              onCite,
-              onUncited,
-            })}
-          </p>
+          <BriefingProse
+            narrative={briefing.narrative}
+            spans={briefing.citation_spans}
+            onCite={onCite}
+            onUncited={onUncited}
+          />
 
           {briefing.smart_chips.length > 0 && (
-            <div className="flex flex-wrap gap-xs pt-xs">
+            <div className="flex flex-wrap gap-xs pt-md border-t border-border">
               {briefing.smart_chips.map((chip, i) => {
                 const { label, prompt } = resolveChip(chip);
                 return (
@@ -95,6 +93,73 @@ export function BriefingCard({ briefing, companyName }: BriefingCardProps) {
       )}
     </Card>
   );
+}
+
+/**
+ * Editorial-style prose: the first sentence is the "lede" — slightly
+ * larger, medium weight, tight tracking. The rest of the narrative
+ * follows as standard body. If we can't split out a first sentence
+ * cleanly, the whole narrative renders as the lede.
+ */
+function BriefingProse({
+  narrative,
+  spans,
+  onCite,
+  onUncited,
+}: {
+  narrative: BriefingOut["narrative"];
+  spans: BriefingOut["citation_spans"];
+  onCite: (engineCallId: string) => void;
+  onUncited: (value: string) => void;
+}) {
+  const split = splitLede(narrative);
+  if (split === null) {
+    return (
+      <p className="text-lg font-medium leading-relaxed tracking-tight whitespace-pre-wrap text-text-primary">
+        {renderWithCitations({ text: narrative, spans, onCite, onUncited })}
+      </p>
+    );
+  }
+  const ledeSpans = spans.filter((s) => s.end_char <= split.at);
+  const restSpans = spans
+    .filter((s) => s.start_char >= split.at)
+    .map((s) => ({
+      ...s,
+      start_char: s.start_char - split.at,
+      end_char: s.end_char - split.at,
+    }));
+  return (
+    <div className="flex flex-col gap-md">
+      <p className="text-lg font-medium leading-relaxed tracking-tight whitespace-pre-wrap text-text-primary">
+        {renderWithCitations({
+          text: split.lede,
+          spans: ledeSpans,
+          onCite,
+          onUncited,
+        })}
+      </p>
+      {split.rest.trim().length > 0 && (
+        <p className="t-body leading-relaxed whitespace-pre-wrap text-text-secondary">
+          {renderWithCitations({
+            text: split.rest,
+            spans: restSpans,
+            onCite,
+            onUncited,
+          })}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function splitLede(text: string): { lede: string; rest: string; at: number } | null {
+  // First sentence boundary: punctuation followed by whitespace + capital
+  // letter. Avoid splitting on abbreviations / decimals — those won't have
+  // the whitespace+capital follow-up.
+  const m = text.match(/[.!?]+\s+(?=[A-ZÅÄÖ])/);
+  if (m === null || m.index === undefined) return null;
+  const at = m.index + m[0].length;
+  return { lede: text.slice(0, at).trimEnd(), rest: text.slice(at), at };
 }
 
 /**
