@@ -26,18 +26,11 @@ describe("artifacts store", () => {
     expect(useArtifacts.getState().stack.map((e) => e.engine_call_id)).toEqual(["ec_a"]);
   });
 
-  it("dedupes by engine_call_id; second push of the same id is a no-op", () => {
-    useArtifacts.getState().push(env("ec_a"));
-    useArtifacts.getState().push(env("ec_a"));
-    expect(useArtifacts.getState().stack).toHaveLength(1);
-  });
-
-  it("places the newest envelope on top", () => {
+  it("a second push replaces the active envelope (single-card pane)", () => {
     useArtifacts.getState().push(env("ec_a"));
     useArtifacts.getState().push(env("ec_b"));
     expect(useArtifacts.getState().stack.map((e) => e.engine_call_id)).toEqual([
       "ec_b",
-      "ec_a",
     ]);
   });
 

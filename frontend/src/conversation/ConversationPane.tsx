@@ -38,7 +38,6 @@ export function ConversationPane({ companyId, companyName }: ConversationPanePro
   const activeThreadId = useThreads((s) => s.activeThreadId);
   const setActiveThreadId = useThreads((s) => s.setActiveThreadId);
   const setActiveCompanyId = useCompanies((s) => s.setActiveCompanyId);
-  const loadArtifactById = useArtifacts((s) => s.loadById);
   const openMobile = useArtifacts((s) => s.openPaneMobile);
   const disableTopicGate = usePrefs((s) => s.disableTopicGate);
 
@@ -90,6 +89,7 @@ export function ConversationPane({ companyId, companyName }: ConversationPanePro
       warning: null,
       streaming: true,
       runningTool: null,
+      toolEvents: [],
       suggested_followups: [],
     });
     try {
@@ -108,25 +108,36 @@ export function ConversationPane({ companyId, companyName }: ConversationPanePro
         } else if (ev.type === "tool_call") {
           inflightTools.set(ev.id, ev.name);
           setStreaming((prev) =>
-            prev === null ? prev : { ...prev, runningTool: ev.name },
+            prev === null
+              ? prev
+              : {
+                  ...prev,
+                  runningTool: ev.name,
+                  toolEvents: [
+                    ...prev.toolEvents,
+                    { id: ev.id, name: ev.name, status: "pending" },
+                  ],
+                },
           );
         } else if (ev.type === "tool_result") {
           inflightTools.delete(ev.tool_call_id);
           const remaining = inflightTools.values().next();
+          const isErr = ev.engine_call_id === undefined;
           setStreaming((prev) =>
             prev === null
               ? prev
               : {
                   ...prev,
                   runningTool: remaining.done ? null : remaining.value,
+                  toolEvents: prev.toolEvents.map((t) =>
+                    t.id === ev.tool_call_id
+                      ? { ...t, status: isErr ? "error" : "done" }
+                      : t,
+                  ),
                 },
           );
-          if (
-            ev.engine_call_id !== undefined &&
-            !seenEngineCallIds.has(ev.engine_call_id)
-          ) {
+          if (ev.engine_call_id !== undefined) {
             seenEngineCallIds.add(ev.engine_call_id);
-            void loadArtifactById(ev.engine_call_id);
           }
         } else if (ev.type === "warning") {
           setStreaming((prev) =>
@@ -176,7 +187,7 @@ export function ConversationPane({ companyId, companyName }: ConversationPanePro
           <span aria-hidden="true">↗</span>
         </IconButton>
       </header>
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin">
         <div className="mx-auto max-w-reading w-full px-xl py-2xl flex flex-col gap-xl">
           <BriefingSection
             briefing={briefingQ.data}

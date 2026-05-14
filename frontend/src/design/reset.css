@@ -64,6 +64,40 @@ svg {
   color: var(--text-primary);
 }
 
+/* Custom scrollbars.
+ *
+ * `.scrollbar-thin` — light, ~6px thumb. Used in the conversation pane and
+ *   the right-side artifact pane.
+ * `.scrollbar-none` — no thumb, no track, but content remains scrollable.
+ *   Used in the sidebar so the thread list scrolls without a visible bar.
+ */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface-muted) transparent;
+}
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: var(--surface-muted);
+  border-radius: 999px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background-color: var(--text-tertiary);
+}
+
+.scrollbar-none {
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

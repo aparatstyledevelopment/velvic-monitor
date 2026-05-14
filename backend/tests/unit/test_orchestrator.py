@@ -353,8 +353,14 @@ def _orchestrator_with_client(
     on_topic: bool = True,
     reason: str = "",
 ) -> ChatOrchestrator:
-    async def fake_classify(_message: str, model: str | None = None) -> TopicDecision:
-        _ = model
+    async def fake_classify(
+        _message: str,
+        *,
+        company_name: str = "",
+        ticker: str = "",
+        model: str | None = None,
+    ) -> TopicDecision:
+        _ = (company_name, ticker, model)
         return TopicDecision(on_topic=on_topic, reason=reason)
 
     scripts: list[list[_ScriptedToolCall | _ScriptedFinal]] = [list(script)]
@@ -374,8 +380,14 @@ def _orchestrator_with_two_scripts(
     first: list[_ScriptedToolCall | _ScriptedFinal],
     second: list[_ScriptedToolCall | _ScriptedFinal],
 ) -> ChatOrchestrator:
-    async def fake_classify(_message: str, model: str | None = None) -> TopicDecision:
-        _ = model
+    async def fake_classify(
+        _message: str,
+        *,
+        company_name: str = "",
+        ticker: str = "",
+        model: str | None = None,
+    ) -> TopicDecision:
+        _ = (company_name, ticker, model)
         return TopicDecision(on_topic=True, reason="")
 
     scripts: list[list[_ScriptedToolCall | _ScriptedFinal]] = [list(first), list(second)]
@@ -417,8 +429,14 @@ async def test_off_topic_emits_refusal_without_calling_sdk(
         sdk_calls.append(1)
         raise AssertionError("SDK client should not be constructed on off-topic")
 
-    async def fake_classify(_msg: str, model: str | None = None) -> TopicDecision:
-        _ = model
+    async def fake_classify(
+        _msg: str,
+        *,
+        company_name: str = "",
+        ticker: str = "",
+        model: str | None = None,
+    ) -> TopicDecision:
+        _ = (company_name, ticker, model)
         return TopicDecision(on_topic=False, reason="not a Swedish-listed name")
 
     orch = ChatOrchestrator(
@@ -459,8 +477,14 @@ async def test_bypass_topic_gate_skips_classifier_and_runs_main_provider(
 
     gate_calls: list[int] = []
 
-    async def boom_classify(_msg: str, model: str | None = None) -> TopicDecision:
-        _ = model
+    async def boom_classify(
+        _msg: str,
+        *,
+        company_name: str = "",
+        ticker: str = "",
+        model: str | None = None,
+    ) -> TopicDecision:
+        _ = (company_name, ticker, model)
         gate_calls.append(1)
         raise AssertionError("gate classifier must not be called when bypass=True")
 

@@ -25,7 +25,7 @@ def test_text_keywords_drive_selection() -> None:
         final_text="The macro snapshot shows EUR/SEK weaker today.",
         tool_names=[],
     )
-    assert "How did FX move against the SEK today?" in out
+    assert "FX vs SEK" in out
 
 
 def test_tool_names_provide_fallback_when_text_is_empty() -> None:
@@ -33,16 +33,25 @@ def test_tool_names_provide_fallback_when_text_is_empty() -> None:
         final_text="",
         tool_names=["get_news_for_company"],
     )
-    assert "Summarise today's regulatory news" in out
+    assert "Today's regulatory news" in out
 
 
 def test_cold_start_tail_fills_when_nothing_matches() -> None:
     out = followups.generate(final_text="", tool_names=[])
     assert out == [
-        "Did peers move similarly today?",
-        "Any MAR-flagged news in the last 30 days?",
-        "Compare against the closest peers",
+        "Peers today?",
+        "MAR-flagged items",
+        "Closest peers",
     ]
+
+
+def test_labels_are_at_most_four_words() -> None:
+    out = followups.generate(
+        final_text="price benchmark sector peer news insider short ownership attribution macro",
+        tool_names=[],
+    )
+    for label in out:
+        assert len(label.split()) <= 4, label
 
 
 def test_caps_at_three() -> None:

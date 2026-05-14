@@ -14,7 +14,7 @@ export function ArtifactPane({ children }: { children?: ReactNode }) {
         <span className="t-section">Sources</span>
       </header>
       <Hairline />
-      <div className="flex-1 overflow-y-auto px-md py-md">{children}</div>
+      <div className="flex-1 overflow-y-auto scrollbar-thin px-md py-md">{children}</div>
     </aside>
   );
 }
@@ -54,7 +54,7 @@ export function ArtifactPaneMobile({ children }: { children?: ReactNode }) {
           </IconButton>
         </header>
         <Hairline />
-        <div className="flex-1 overflow-y-auto px-md py-md">{children}</div>
+        <div className="flex-1 overflow-y-auto scrollbar-thin px-md py-md">{children}</div>
       </aside>
     </div>
   );

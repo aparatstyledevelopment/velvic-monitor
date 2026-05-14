@@ -1,51 +1,45 @@
-"""Suggested follow-up questions emitted with each assistant turn.
+"""Suggested follow-up labels emitted with each assistant turn.
 
-The frontend renders these as interactive chips that prefill the composer.
-Suggestions are prose questions, not facts — they don't carry numbers and
-don't need engine_call_ids, so the engine/narrator contract is unaffected.
+Frontend renders these as chips that prefill the composer when clicked.
+Per UI spec, labels stay <= 4 words: short enough to scan, the model
+answers using the thread context.
 
-Phase-3 ships a deterministic heuristic generator: it inspects the
-assistant text and engine_call_ids touched in the turn to pick three
-relevant follow-ups from a small library. This keeps cost and latency
-flat. Swap to LLM-generated followups by replacing `generate` while
-keeping the signature stable.
+The generator is deterministic: it inspects the assistant text and the
+engine tool names called this turn, picks up to three labels from a
+small library, falls back to a stable cold-start tail.
 """
 
 from __future__ import annotations
 
 from collections.abc import Sequence
 
-# (matcher, candidate). The matcher receives the lowercased final text
-# plus the set of tool names called this turn; first three matches win,
-# in declaration order. The default tail covers the cold-start case.
+# (matcher, label). The matcher receives the lowercased final text plus
+# the set of tool names called this turn; first three matches win, in
+# declaration order. Labels are <= 4 words.
 _LIBRARY: list[tuple[str, str]] = [
-    ("price", "Did peers move similarly today?"),
-    ("price", "Show me the 30-day price trend"),
-    ("benchmark", "How did the benchmark move this week?"),
-    ("sector", "Which sector peers underperformed today?"),
-    ("peer", "Compare against the closest peers"),
-    ("news", "Summarise today's regulatory news"),
-    ("news", "Any MAR-flagged items in the last 30 days?"),
-    ("insider", "Any insider activity this week?"),
-    ("short", "What's the trend in short interest?"),
-    ("ownership", "Who's been buying recently?"),
-    ("attribution", "Break down today's relative move"),
-    ("macro", "How did FX move against the SEK today?"),
+    ("price", "Peers today?"),
+    ("price", "30-day trend"),
+    ("benchmark", "Benchmark this week"),
+    ("sector", "Sector laggards"),
+    ("peer", "Closest peers"),
+    ("news", "Today's regulatory news"),
+    ("news", "MAR-flagged items"),
+    ("insider", "Insider activity"),
+    ("short", "Short interest trend"),
+    ("ownership", "Recent buyers"),
+    ("attribution", "Attribution breakdown"),
+    ("macro", "FX vs SEK"),
 ]
 
 _DEFAULT_TAIL: list[str] = [
-    "Did peers move similarly today?",
-    "Any MAR-flagged news in the last 30 days?",
-    "Compare against the closest peers",
+    "Peers today?",
+    "MAR-flagged items",
+    "Closest peers",
 ]
 
 
 def generate(*, final_text: str, tool_names: Sequence[str]) -> list[str]:
-    """Return up to three short follow-up questions for the given turn.
-
-    Order: first matches against the assistant text, then matches against
-    tool names, then a stable cold-start tail. Duplicates collapsed.
-    """
+    """Return up to three short follow-up labels (<= 4 words each)."""
     haystack = final_text.lower()
     chosen: list[str] = []
     seen: set[str] = set()

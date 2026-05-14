@@ -102,7 +102,7 @@ export function MainLayout({ children }: { children: ReactNode }) {
                   <X size={14} aria-hidden="true" />
                 </IconButton>
               </header>
-              <div className="flex-1 overflow-y-auto px-md py-md">
+              <div className="flex-1 overflow-y-auto scrollbar-thin px-md py-md">
                 <ArtifactStack />
               </div>
             </aside>

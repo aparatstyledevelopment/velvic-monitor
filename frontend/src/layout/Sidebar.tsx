@@ -63,7 +63,7 @@ export function Sidebar() {
       </div>
       <Hairline />
       <nav
-        className="flex-1 px-sm pt-md pb-md overflow-y-auto flex flex-col gap-xxs"
+        className="flex-1 px-sm pt-md pb-md overflow-y-auto scrollbar-none flex flex-col gap-xxs"
         aria-label="Modules"
       >
         {MODULES.map((m) => {

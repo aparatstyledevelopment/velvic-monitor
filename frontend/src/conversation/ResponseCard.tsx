@@ -1,10 +1,14 @@
 import type { ChatTurnOut } from "../api/chat";
-import { Card, Pill, PillButton } from "../design/primitives";
+import { Card } from "../design/primitives";
 import { useArtifacts } from "../state/artifacts";
-import { useComposer } from "../state/composer";
 
-import { chipTitle } from "./chipTitle";
 import { renderWithCitations, type CitationSpan } from "./citationRenderer";
+
+export interface ToolEvent {
+  id: string;
+  name: string;
+  status: "pending" | "done" | "error";
+}
 
 export interface ResponseCardData {
   text: string;
@@ -13,6 +17,7 @@ export interface ResponseCardData {
   warning: string | null;
   streaming: boolean;
   runningTool: string | null;
+  toolEvents: readonly ToolEvent[];
   suggested_followups: readonly string[];
 }
 
@@ -24,6 +29,7 @@ export function responseCardFromTurn(turn: ChatTurnOut): ResponseCardData {
     warning: turn.warning ?? null,
     streaming: false,
     runningTool: null,
+    toolEvents: [],
     suggested_followups: turn.suggested_followups ?? [],
   };
 }
@@ -35,7 +41,6 @@ interface ResponseCardProps {
 export function ResponseCard({ data }: ResponseCardProps) {
   const loadById = useArtifacts((s) => s.loadById);
   const openMobile = useArtifacts((s) => s.openPaneMobile);
-  const setDraft = useComposer((s) => s.setDraft);
   const isRefusal = data.finish_reason === "refusal";
 
   async function onCite(engineCallId: string) {
@@ -43,39 +48,19 @@ export function ResponseCard({ data }: ResponseCardProps) {
     await loadById(engineCallId);
   }
 
-  async function onOpenPrimarySource() {
-    const first = data.citation_spans[0]?.engine_call_id;
-    if (first === undefined) return;
-    await onCite(first);
-  }
-
   const hasCitations = data.citation_spans.length > 0;
 
   const header =
     isRefusal || data.streaming || hasCitations ? (
-      <>
-        <span className="t-meta flex items-center gap-sm">
-          {isRefusal ? (
-            "Off-topic"
-          ) : data.streaming ? (
-            <>
-              <TypingIndicator />
-              {data.runningTool !== null && (
-                <Pill tone="muted" className="t-mono">
-                  engine: {data.runningTool}
-                </Pill>
-              )}
-            </>
-          ) : (
-            "Assistant"
-          )}
-        </span>
-        {hasCitations && !data.streaming && (
-          <PillButton tone="inverse" onClick={onOpenPrimarySource}>
-            Source
-          </PillButton>
+      <span className="t-meta flex items-center gap-sm">
+        {isRefusal ? (
+          "Off-topic"
+        ) : data.streaming ? (
+          <TypingIndicator />
+        ) : (
+          "Assistant"
         )}
-      </>
+      </span>
     ) : null;
 
   const bodyClasses = isRefusal
@@ -84,8 +69,11 @@ export function ResponseCard({ data }: ResponseCardProps) {
 
   return (
     <Card header={header ?? undefined}>
+      {data.toolEvents.length > 0 && <ToolTimeline events={data.toolEvents} />}
       {data.text.length === 0 && data.streaming ? (
-        <p className="t-small text-text-tertiary italic">Thinking&hellip;</p>
+        data.toolEvents.length === 0 && (
+          <p className="t-small text-text-tertiary italic">Thinking&hellip;</p>
+        )
       ) : (
         <p className={bodyClasses}>
           {renderWithCitations({
@@ -96,24 +84,58 @@ export function ResponseCard({ data }: ResponseCardProps) {
         </p>
       )}
       {data.warning !== null && <WarningRow warning={data.warning} />}
-      {!data.streaming &&
-        !isRefusal &&
-        data.suggested_followups.length > 0 && (
-          <div className="mt-md flex flex-wrap gap-xs pt-md border-t border-border">
-            {data.suggested_followups.map((s, i) => (
-              <PillButton
-                key={i}
-                onClick={() => setDraft(s)}
-                aria-label={`Use follow-up: ${s}`}
-                title={s}
-              >
-                {chipTitle(s)}
-              </PillButton>
-            ))}
-          </div>
-        )}
     </Card>
   );
+}
+
+function ToolTimeline({ events }: { events: readonly ToolEvent[] }) {
+  return (
+    <ul
+      className="flex flex-col gap-xxs mb-sm pb-sm border-b border-border list-none p-0 m-0"
+      aria-label="Tool calls"
+    >
+      {events.map((ev) => (
+        <li key={ev.id} className="flex items-center gap-xs t-small">
+          <StatusGlyph status={ev.status} />
+          <code className="t-mono text-xs text-text-secondary">{ev.name}</code>
+          <span className="text-text-tertiary">{labelFor(ev.status)}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function StatusGlyph({ status }: { status: ToolEvent["status"] }) {
+  if (status === "pending") {
+    return (
+      <span
+        aria-hidden="true"
+        className="h-xs w-xs rounded-pill bg-text-tertiary animate-pulse shrink-0"
+      />
+    );
+  }
+  if (status === "error") {
+    return (
+      <span
+        aria-hidden="true"
+        className="h-xs w-xs rounded-pill shrink-0"
+        style={{ background: "var(--signal-negative)" }}
+      />
+    );
+  }
+  return (
+    <span
+      aria-hidden="true"
+      className="h-xs w-xs rounded-pill shrink-0"
+      style={{ background: "var(--signal-positive)" }}
+    />
+  );
+}
+
+function labelFor(status: ToolEvent["status"]): string {
+  if (status === "pending") return "calling…";
+  if (status === "error") return "failed";
+  return "done";
 }
 
 function WarningRow({ warning }: { warning: string }) {
@@ -151,3 +173,4 @@ function TypingIndicator() {
     </span>
   );
 }
+

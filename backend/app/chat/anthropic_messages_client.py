@@ -18,7 +18,7 @@ import httpx
 
 from app.core.config import get_settings
 
-DEFAULT_MODEL = "claude-haiku-4-5-20251001"
+DEFAULT_MODEL = "claude-opus-4-7"
 PRICING_CENTS_PER_MTOK: dict[str, dict[str, float]] = {
     "claude-haiku-4-5-20251001": {"prompt": 100.0, "completion": 500.0},
     "claude-sonnet-4-6": {"prompt": 300.0, "completion": 1500.0},

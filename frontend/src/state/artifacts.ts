@@ -6,6 +6,7 @@ import { engineCallsApi } from "../api/engineCalls";
 export type EngineCallEnvelope = components["schemas"]["EngineCallOut"];
 
 interface ArtifactsState {
+  /** Single active artifact at a time — clicking a citation replaces. */
   stack: EngineCallEnvelope[];
   loadingIds: ReadonlySet<string>;
   paneOpenMobile: boolean;
@@ -20,30 +21,20 @@ export const useArtifacts = create<ArtifactsState>((set, get) => ({
   stack: [],
   loadingIds: new Set<string>(),
   paneOpenMobile: false,
-  push: (envelope) =>
-    set((state) => {
-      if (state.stack.some((e) => e.engine_call_id === envelope.engine_call_id)) {
-        return state;
-      }
-      return { stack: [envelope, ...state.stack] };
-    }),
+  push: (envelope) => set({ stack: [envelope] }),
   loadById: async (engineCallId) => {
     const { stack, loadingIds } = get();
-    if (stack.some((e) => e.engine_call_id === engineCallId)) return;
+    if (stack[0]?.engine_call_id === engineCallId) return;
     if (loadingIds.has(engineCallId)) return;
     const next = new Set(loadingIds);
     next.add(engineCallId);
-    set({ loadingIds: next });
+    set({ loadingIds: next, stack: [] });
     try {
       const envelope = await engineCallsApi.get(engineCallId);
       set((s) => {
         const remaining = new Set(s.loadingIds);
         remaining.delete(engineCallId);
-        const exists = s.stack.some((e) => e.engine_call_id === envelope.engine_call_id);
-        return {
-          loadingIds: remaining,
-          stack: exists ? s.stack : [envelope, ...s.stack],
-        };
+        return { loadingIds: remaining, stack: [envelope] };
       });
     } catch (err) {
       set((s) => {

@@ -45,6 +45,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import AppUser, Company, Org, OrgCompanyAccess
 from app.chat import followups as followups_mod
+from app.chat import thread_title as thread_title_mod
 from app.chat import topic_gate as topic_gate_mod
 from app.chat.anthropic_messages_client import (
     DEFAULT_MODEL,
@@ -70,7 +71,7 @@ DEFAULT_TOOL_MODULES = ("drivers", "shared")
 HISTORY_LIMIT = 20  # most-recent N turns sent back to the model
 
 ClientFactory = Callable[[ClaudeAgentOptions], ClaudeSDKClient]
-GateClassifyFn = Callable[[str], Awaitable[TopicDecision]]
+GateClassifyFn = Callable[..., Awaitable[TopicDecision]]
 
 
 @dataclass
@@ -155,7 +156,11 @@ async def _drive_turn(
             user_id=str(user.id),
         )
     else:
-        decision = await orch._gate_classify_fn(user_message)
+        decision = await orch._gate_classify_fn(
+            user_message,
+            company_name=company.name,
+            ticker=company.ticker,
+        )
         if not decision.on_topic:
             refusal = topic_gate_mod.render_refusal(
                 company_name=company.name, reason=decision.reason
@@ -285,6 +290,16 @@ async def _drive_turn(
     for ec_id in dict.fromkeys(state.hooks.engine_call_ids):
         session.add(ChatEngineCall(turn_id=assistant_turn.id, engine_call_id=ec_id))
     thread.updated_at = datetime.now(UTC)
+
+    if assistant_idx <= 2 and thread_title_mod.looks_like_raw_user_message(
+        thread.title, user_message
+    ):
+        new_title = await thread_title_mod.generate_title(
+            user_message=user_message, assistant_text=final_text
+        )
+        if new_title:
+            thread.title = new_title
+
     await session.commit()
 
     yield CompletionEvent(

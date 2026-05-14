@@ -1,7 +1,10 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { ResponseCard, type ResponseCardData } from "../../src/conversation/ResponseCard";
+import {
+  ResponseCard,
+  type ResponseCardData,
+} from "../../src/conversation/ResponseCard";
 import { TooltipProvider } from "../../src/design/primitives";
 
 function H({ data }: { data: ResponseCardData }) {
@@ -19,20 +22,45 @@ const base: ResponseCardData = {
   warning: null,
   streaming: false,
   runningTool: null,
+  toolEvents: [],
   suggested_followups: [],
 };
 
 describe("ResponseCard", () => {
-  it("renders a thinking indicator when streaming and no text yet", () => {
+  it("renders a thinking indicator when streaming with no text and no tool events", () => {
     render(<H data={{ ...base, streaming: true }} />);
     expect(screen.getByText(/thinking/i)).toBeInTheDocument();
   });
 
-  it("renders the running tool pill while a tool_call is in flight", () => {
+  it("renders a live tool timeline while tools are in flight", () => {
     render(
-      <H data={{ ...base, streaming: true, text: "Looking…", runningTool: "get_price_move" }} />,
+      <H
+        data={{
+          ...base,
+          streaming: true,
+          text: "Looking…",
+          runningTool: "get_price_move",
+          toolEvents: [
+            { id: "tu_1", name: "get_price_move", status: "pending" },
+          ],
+        }}
+      />,
     );
-    expect(screen.getByText(/engine: get_price_move/i)).toBeInTheDocument();
+    expect(screen.getByText(/get_price_move/i)).toBeInTheDocument();
+    expect(screen.getByText(/calling/i)).toBeInTheDocument();
+  });
+
+  it("marks a finished tool event as done", () => {
+    render(
+      <H
+        data={{
+          ...base,
+          text: "VOLV-B is down 2.1%.",
+          toolEvents: [{ id: "tu_1", name: "get_price_move", status: "done" }],
+        }}
+      />,
+    );
+    expect(screen.getByText("done")).toBeInTheDocument();
   });
 
   it("renders refusal chrome when finish_reason is refusal", () => {
@@ -50,13 +78,9 @@ describe("ResponseCard", () => {
 
   it("renders a friendly explanation for uncited_numeric warnings", () => {
     render(
-      <H
-        data={{ ...base, text: "VOLV-B is down 2.1%.", warning: "uncited_numeric" }}
-      />,
+      <H data={{ ...base, text: "VOLV-B is down 2.1%.", warning: "uncited_numeric" }} />,
     );
-    expect(
-      screen.getByText(/could not be cited/i),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/could not be cited/i)).toBeInTheDocument();
   });
 
   it("renders an arbitrary warning string verbatim", () => {
@@ -70,37 +94,19 @@ describe("ResponseCard", () => {
         data={{
           ...base,
           text: "Down 2.1%.",
-          citation_spans: [
-            { start_char: 5, end_char: 9, engine_call_id: "ec_a" },
-          ],
+          citation_spans: [{ start_char: 5, end_char: 9, engine_call_id: "ec_a" }],
         }}
       />,
     );
     expect(screen.getByLabelText("Open evidence 1")).toBeInTheDocument();
   });
 
-  it("renders interactive follow-up chips when present and not streaming", () => {
+  it("never renders follow-up chips on response cards (briefing-only by design)", () => {
     render(
       <H
         data={{
           ...base,
           text: "Hi.",
-          suggested_followups: ["Did peers move similarly today?"],
-        }}
-      />,
-    );
-    expect(
-      screen.getByLabelText("Use follow-up: Did peers move similarly today?"),
-    ).toBeInTheDocument();
-  });
-
-  it("hides follow-up chips while streaming", () => {
-    render(
-      <H
-        data={{
-          ...base,
-          text: "Hi.",
-          streaming: true,
           suggested_followups: ["Should not show"],
         }}
       />,

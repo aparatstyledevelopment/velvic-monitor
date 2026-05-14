@@ -49,7 +49,9 @@ export function ArtifactCard({ envelope }: ArtifactCardProps) {
 
       <Section title={queryTitle}>
         {isAdHocSql ? (
-          <CodeBlock ariaLabel="SQL query">{response.sql}</CodeBlock>
+          <CodeBlock ariaLabel="SQL query" language="sql">
+            {response.sql}
+          </CodeBlock>
         ) : (
           <CodeBlock ariaLabel="Engine call">
             {renderFunctionCall(envelope.tool_name, envelope.params)}
