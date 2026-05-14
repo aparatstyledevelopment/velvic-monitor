@@ -33,8 +33,16 @@ from app.core.logging import logger
 CITATION_RE = re.compile(r"[ \t]?\[(?P<id>ec_[a-f0-9]{6,})\]")
 # `\b...\b` would exclude the trailing `%` because `%` isn't a word char;
 # negative lookahead for alphanumerics keeps `2.1%` matched whole while
-# still rejecting `2.5km`.
-NUMBER_RE = re.compile(r"\b\d+(?:[.,]\d+)?%?(?![A-Za-z0-9])")
+# still rejecting `2.5km`. Multi-comma numbers like `2,189,729` must match
+# whole — without the `(?:,\d{3})*` clause the backward-walk would lock onto
+# the trailing 3-digit chunk and emit a span over `729` only, leaving the
+# real number flagged as uncited.
+NUMBER_RE = re.compile(
+    r"(?:"
+    r"\b\d{1,3}(?:,\d{3})+(?:\.\d+)?%?"   # thousands-separated (multi-comma OK)
+    r"|\b\d+(?:\.\d+)?%?"                  # plain integer or decimal
+    r")(?![A-Za-z0-9])"
+)
 # Stricter pattern used by the uncited-numeric check: only flag tokens that
 # look like financial values (decimal, thousands-separated, or with %).
 # This avoids false positives on list bullets like `1.` `2.`, single-digit
@@ -70,30 +78,46 @@ def parse_citations(text: str, valid_ids: set[str]) -> ParseResult:
     unknown id are dropped from the output (the trailing number stays
     visible) and logged — never raised — because a single fabricated
     marker should not break the whole turn.
+
+    Identical spans (same start/end/ec_id) are deduped — a model that
+    repeats the same `[ec_xxx]` marker after a value shouldn't render two
+    overlapping chips.
+
+    Span offsets are translated from original-text coordinates into
+    output-text coordinates by subtracting the length of every prior
+    marker whose end falls strictly before the cited fragment's start.
+    The naive "cumulative consumed so far" would over-subtract when a
+    later marker points BACK at an earlier number (the duplicate-marker
+    case).
     """
     spans: list[CitationSpan] = []
+    seen: set[tuple[int, int, str]] = set()
     out_chars: list[str] = []
-    consumed = 0
+    prev_markers: list[tuple[int, int]] = []
     pos = 0
     for m in CITATION_RE.finditer(text):
         out_chars.append(text[pos : m.start()])
         ec_id = m.group("id")
         if ec_id not in valid_ids:
             logger.warning("parse_citations_unknown_id", engine_call_id=ec_id)
-            consumed += m.end() - m.start()
+            prev_markers.append((m.start(), m.end()))
             pos = m.end()
             continue
         cited = _find_cited_fragment(text, m.start())
         if cited is not None:
             frag_start, frag_end = cited
-            spans.append(
-                CitationSpan(
-                    start_char=frag_start - consumed,
-                    end_char=frag_end - consumed,
-                    engine_call_id=ec_id,
+            shift = sum(e - s for s, e in prev_markers if e <= frag_start)
+            key = (frag_start - shift, frag_end - shift, ec_id)
+            if key not in seen:
+                seen.add(key)
+                spans.append(
+                    CitationSpan(
+                        start_char=key[0],
+                        end_char=key[1],
+                        engine_call_id=ec_id,
+                    )
                 )
-            )
-        consumed += m.end() - m.start()
+        prev_markers.append((m.start(), m.end()))
         pos = m.end()
     out_chars.append(text[pos:])
     return ParseResult(text="".join(out_chars), spans=spans)
@@ -230,11 +254,12 @@ def _canonical_forms(value: float) -> Iterator[str]:
     """Emit every string form `_FINANCIAL_NUMBER_RE` might capture for `value`.
 
     The regex strips leading sign, so we always canonicalise to abs(value).
+    Covers 1-4 decimal places because the FactPack rounds to 4dp before
+    the model sees it; the model may also paraphrase down to fewer digits.
     """
     a = abs(value)
-    yield f"{a:.2f}"
-    yield f"{a:.1f}"
-    yield f"{a:.2f}%"
-    yield f"{a:.1f}%"
+    for digits in (1, 2, 3, 4):
+        yield f"{a:.{digits}f}"
+        yield f"{a:.{digits}f}%"
     if a == int(a) and a >= 1000:
         yield f"{int(a):,}"

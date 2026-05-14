@@ -169,14 +169,49 @@ async def build_fact_pack(
     return pack
 
 
+_FACT_PACK_DECIMAL_PRECISION = 4
+
+
 def _bundle(result: EngineResult[Any]) -> dict[str, Any]:
-    data = result.data.model_dump(mode="json")
+    data = _round_numerics(result.data.model_dump(mode="json"))
     if isinstance(data, dict):
         data["_engine_call_id"] = result.engine_call_id
     return {
         "engine_call_id": result.engine_call_id,
         "data": data,
     }
+
+
+def _round_numerics(node: Any) -> Any:
+    """Recursively round numeric leaves to a fixed precision.
+
+    Pydantic's `model_dump(mode="json")` serialises `Decimal` as a string
+    preserving every digit, so a computed return like
+    `(curr - prev) / prev * 100` arrives as
+    `"-0.61657263969171483622350674371"` — long enough that the model
+    copies the verbatim mantissa into prose. 4dp is sufficient signal
+    for both prices and percentage returns; volumes / counts (integers)
+    pass through unchanged.
+    """
+    if isinstance(node, dict):
+        return {k: _round_numerics(v) for k, v in node.items()}
+    if isinstance(node, list):
+        return [_round_numerics(v) for v in node]
+    if isinstance(node, bool):
+        return node
+    if isinstance(node, float):
+        return round(node, _FACT_PACK_DECIMAL_PRECISION)
+    if isinstance(node, str):
+        # Decimals come through model_dump(mode="json") as strings.
+        # Round only when the string parses to a non-integer float.
+        try:
+            f = float(node)
+        except ValueError:
+            return node
+        if f == int(f):
+            return node
+        return f"{f:.{_FACT_PACK_DECIMAL_PRECISION}f}"
+    return node
 
 
 _FACT_PACK_SECTIONS = (

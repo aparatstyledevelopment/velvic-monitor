@@ -150,3 +150,55 @@ def test_auto_ground_ignores_match_to_invalid_ec_id() -> None:
     out = auto_ground(parsed, {"167.90": {"ec_unknown"}}, valid_ec_ids=set())
     assert out.spans == []
     assert "167.90" in out.text
+
+
+# --------------------------------------------------------------------------
+# Multi-comma backward-walk + duplicate-marker dedupe
+# --------------------------------------------------------------------------
+
+
+def test_multi_comma_number_cited_whole_not_just_trailing_chunk() -> None:
+    # Regression: NUMBER_RE used to split `2,189,729` into ["2,189", "729"]
+    # and emit a span only over the trailing 3-digit chunk. The full number
+    # then got flagged as uncited while a phantom `729` chip rendered.
+    text = "Volume of 2,189,729 [ec_aaaaaa] shares."
+    result = parse_citations(text, {"ec_aaaaaa"})
+    assert result.text == "Volume of 2,189,729 shares."
+    assert len(result.spans) == 1
+    s = result.spans[0]
+    assert result.text[s.start_char : s.end_char] == "2,189,729"
+    # And the uncited detector should now see the full number as covered.
+    uncited = find_uncited_numerics(result.text, result.spans)
+    assert uncited == []
+
+
+def test_duplicate_marker_for_same_number_is_deduped() -> None:
+    # Regression: model occasionally emits two identical markers after a
+    # number; the frontend then rendered the cited fragment twice.
+    text = "Volume 2,189,729 [ec_aaaaaa] [ec_aaaaaa] shares."
+    result = parse_citations(text, {"ec_aaaaaa"})
+    # Both markers stripped, one span survives.
+    assert "[ec_" not in result.text
+    assert len(result.spans) == 1
+    assert result.spans[0].engine_call_id == "ec_aaaaaa"
+
+
+def test_distinct_markers_for_same_number_both_kept() -> None:
+    # Two different sources citing the same fragment is a real multi-source
+    # case (rare but valid). Both spans should survive even when start/end
+    # collide; dedupe is keyed on (start, end, ec_id).
+    text = "Return 2.1% [ec_aaaaaa] [ec_bbbbbb]."
+    result = parse_citations(text, {"ec_aaaaaa", "ec_bbbbbb"})
+    ec_ids = {s.engine_call_id for s in result.spans}
+    assert ec_ids == {"ec_aaaaaa", "ec_bbbbbb"}
+
+
+def test_canonical_forms_cover_4dp_for_rounded_factpack_values() -> None:
+    # Regression: FactPack rounds Decimals to 4dp, so the model often emits
+    # `0.6166%` (or paraphrases to `0.62%`). build_values_index must cover
+    # the full 1-4dp range, not just 1-2dp.
+    index = build_values_index([("ec_aaaaaa", {"daily_return_pct": -0.6166})])
+    assert "0.6166%" in index
+    assert "0.617%" in index
+    assert "0.62%" in index
+    assert "0.6%" in index

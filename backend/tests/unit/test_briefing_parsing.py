@@ -1,6 +1,10 @@
 """Unit tests for the briefing-response JSON extractor and parsing."""
 
-from app.engine.drivers.briefing import _extract_json, _parse_briefing_response
+from app.engine.drivers.briefing import (
+    _extract_json,
+    _parse_briefing_response,
+    _round_numerics,
+)
 
 
 def test_extract_plain_json() -> None:
@@ -60,3 +64,26 @@ def test_parse_response_with_uncited_numeric_flagged() -> None:
     raw_many = '{"narrative": "ok", "smart_chips": ["a","b","c","d","e","f","g"]}'
     out2 = _parse_briefing_response(raw_many, valid_ids=set())
     assert len(out2.smart_chips) == 5
+
+
+def test_round_numerics_trims_decimal_strings_to_4dp() -> None:
+    # Regression: Pydantic serialised Decimals with full mantissa, leaving
+    # the LLM to copy `-0.61657263969171483622350674371` into prose.
+    data = {
+        "last_close": "128.949997",
+        "daily_return_pct": "-0.61657263969171483622350674371",
+        "five_day_history": [{"close": "129.750000", "volume": 1771214}],
+    }
+    out = _round_numerics(data)
+    assert out["last_close"] == "128.9500"
+    assert out["daily_return_pct"] == "-0.6166"
+    assert out["five_day_history"][0]["close"] == "129.7500"
+    # Integers unchanged.
+    assert out["five_day_history"][0]["volume"] == 1771214
+
+
+def test_round_numerics_preserves_non_numeric_strings_and_none() -> None:
+    out = _round_numerics(
+        {"ticker": "NDA-SE", "name": "Nordea", "sector": None, "items": []}
+    )
+    assert out == {"ticker": "NDA-SE", "name": "Nordea", "sector": None, "items": []}
