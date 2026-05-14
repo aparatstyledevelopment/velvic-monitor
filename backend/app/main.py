@@ -13,6 +13,7 @@ from app.api.routers import (
     drivers,
     engine_calls,
     health,
+    llm_usage,
 )
 from app.core.cache import close_redis
 from app.core.config import get_settings
@@ -62,6 +63,7 @@ def create_app() -> FastAPI:
     app.include_router(drivers.router, prefix="/api")
     app.include_router(chat.router, prefix="/api")
     app.include_router(engine_calls.router, prefix="/api")
+    app.include_router(llm_usage.router, prefix="/api")
 
     return app
 

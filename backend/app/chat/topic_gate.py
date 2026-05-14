@@ -15,7 +15,7 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
-from app.chat.anthropic_messages_client import call_messages
+from app.chat.anthropic_messages_client import MessagesResponse, call_messages
 from app.chat.prompts import REFUSAL_TEMPLATE, render_topic_gate_system
 from app.core.logging import logger
 
@@ -24,6 +24,12 @@ from app.core.logging import logger
 class TopicDecision:
     on_topic: bool
     reason: str  # empty when on-topic
+
+
+@dataclass(frozen=True)
+class ClassifyResult:
+    decision: TopicDecision
+    response: MessagesResponse | None  # None when the call short-circuited
 
 
 CLASSIFIER_MAX_TOKENS = 96
@@ -35,8 +41,9 @@ async def classify(
     company_name: str,
     ticker: str,
     model: str | None = None,
-) -> TopicDecision:
-    """Return ON_TOPIC / OFF_TOPIC decision for `message`.
+) -> ClassifyResult:
+    """Return ON_TOPIC / OFF_TOPIC decision for `message` plus the raw
+    Messages response for cost/usage logging upstream.
 
     The system prompt is rendered with the thread's company so the
     classifier knows what "in scope" means for this conversation.
@@ -53,8 +60,12 @@ async def classify(
         )
     except RuntimeError as e:
         logger.warning("topic_gate_unavailable", error=str(e))
-        return TopicDecision(on_topic=True, reason="")
-    return _parse_decision(response.text)
+        return ClassifyResult(
+            decision=TopicDecision(on_topic=True, reason=""), response=None
+        )
+    return ClassifyResult(
+        decision=_parse_decision(response.text), response=response
+    )
 
 
 def _parse_decision(raw: str) -> TopicDecision:

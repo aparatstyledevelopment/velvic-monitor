@@ -244,6 +244,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/llm/usage/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Usage Summary */
+        get: operations["usage_summary_api_llm_usage_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/me/companies": {
         parameters: {
             query?: never;
@@ -537,6 +554,49 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** LLMModelUsage */
+        LLMModelUsage: {
+            /** Call Count */
+            call_count: number;
+            /** Completion Tokens */
+            completion_tokens: number;
+            /** Cost Cents */
+            cost_cents: number;
+            /** Model */
+            model: string;
+            /** Prompt Tokens */
+            prompt_tokens: number;
+        };
+        /** LLMSurfaceUsage */
+        LLMSurfaceUsage: {
+            /** Call Count */
+            call_count: number;
+            /** Completion Tokens */
+            completion_tokens: number;
+            /** Cost Cents */
+            cost_cents: number;
+            /** Prompt Tokens */
+            prompt_tokens: number;
+            /** Surface */
+            surface: string;
+        };
+        /** LLMUsageSummary */
+        LLMUsageSummary: {
+            /** By Model */
+            by_model: components["schemas"]["LLMModelUsage"][];
+            /** By Surface */
+            by_surface: components["schemas"]["LLMSurfaceUsage"][];
+            /** Last 30D Cost Cents */
+            last_30d_cost_cents: number;
+            /** Total Call Count */
+            total_call_count: number;
+            /** Total Completion Tokens */
+            total_completion_tokens: number;
+            /** Total Cost Cents */
+            total_cost_cents: number;
+            /** Total Prompt Tokens */
+            total_prompt_tokens: number;
         };
         /** LoginRequest */
         LoginRequest: {
@@ -1111,6 +1171,37 @@ export interface operations {
                     "application/json": {
                         [key: string]: string;
                     };
+                };
+            };
+        };
+    };
+    usage_summary_api_llm_usage_summary_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LLMUsageSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

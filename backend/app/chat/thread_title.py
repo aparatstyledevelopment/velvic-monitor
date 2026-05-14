@@ -12,8 +12,16 @@ user message (the heuristic check `_looks_like_raw_user_message`).
 
 from __future__ import annotations
 
-from app.chat.anthropic_messages_client import call_messages
+from dataclasses import dataclass
+
+from app.chat.anthropic_messages_client import MessagesResponse, call_messages
 from app.core.logging import logger
+
+
+@dataclass(frozen=True)
+class TitleResult:
+    title: str | None
+    response: MessagesResponse | None
 
 _PROMPT = (
     "Summarise this IR analyst exchange as a 3-5 word title. "
@@ -24,8 +32,10 @@ _PROMPT = (
 )
 
 
-async def generate_title(*, user_message: str, assistant_text: str) -> str | None:
-    """Return a short title, or None if the call fails."""
+async def generate_title(
+    *, user_message: str, assistant_text: str
+) -> TitleResult:
+    """Return a short title (or None) plus the raw response for logging."""
     try:
         response = await call_messages(
             system="You write tight 3-5 word titles for IR chat threads.",
@@ -38,8 +48,8 @@ async def generate_title(*, user_message: str, assistant_text: str) -> str | Non
         )
     except Exception as e:  # network, parse, missing key — all non-fatal
         logger.warning("thread_title_failed", error=str(e))
-        return None
-    return _clean(response.text)
+        return TitleResult(title=None, response=None)
+    return TitleResult(title=_clean(response.text), response=response)
 
 
 def _clean(raw: str) -> str | None:

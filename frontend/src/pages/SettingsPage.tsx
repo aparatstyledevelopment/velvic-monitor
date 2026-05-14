@@ -1,4 +1,6 @@
+import { useQuery } from "@tanstack/react-query";
 import {
+  Activity,
   Bell,
   Calendar,
   Coins,
@@ -13,6 +15,7 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { llmUsageApi, type LLMUsageSummary } from "../api/llmUsage";
 import { TakeoverHeader } from "../layout/TakeoverHeader";
 import { usePrefs } from "../state/prefs";
 import type { InterfaceSize, Theme } from "../state/prefs";
@@ -150,9 +153,160 @@ export function SettingsPage() {
             }
           />
         </Section>
+
+        <Section title="LLM usage">
+          <UsageSummary />
+        </Section>
       </div>
     </div>
   );
+}
+
+function UsageSummary() {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["llm-usage-summary"],
+    queryFn: () => llmUsageApi.summary(),
+  });
+
+  if (isLoading) {
+    return (
+      <div className="px-lg py-md t-small text-text-tertiary">
+        Loading usage&hellip;
+      </div>
+    );
+  }
+  if (error !== null || data === undefined) {
+    return (
+      <div className="px-lg py-md t-small text-text-tertiary">
+        Usage stats unavailable.
+      </div>
+    );
+  }
+  return (
+    <>
+      <SettingRow
+        icon={<Activity size={16} aria-hidden="true" />}
+        title="Total spend"
+        description={`${data.total_call_count.toLocaleString()} call${
+          data.total_call_count === 1 ? "" : "s"
+        } · ${formatTokens(
+          data.total_prompt_tokens + data.total_completion_tokens,
+        )} tokens`}
+        control={<UsageValue cents={data.total_cost_cents} />}
+      />
+      <SettingRow
+        icon={<Activity size={16} aria-hidden="true" />}
+        title="Last 30 days"
+        description="Rolling window"
+        control={<UsageValue cents={data.last_30d_cost_cents} />}
+      />
+      <UsageBreakdown summary={data} />
+    </>
+  );
+}
+
+function UsageValue({ cents }: { cents: number }) {
+  return (
+    <span className="t-mono text-sm tabular-nums">
+      {formatCost(cents)}
+    </span>
+  );
+}
+
+function UsageBreakdown({ summary }: { summary: LLMUsageSummary }) {
+  if (summary.by_surface.length === 0 && summary.by_model.length === 0) {
+    return null;
+  }
+  return (
+    <div className="px-lg py-md flex flex-col gap-md">
+      {summary.by_surface.length > 0 && (
+        <BreakdownTable
+          title="By surface"
+          rows={summary.by_surface.map((s) => ({
+            key: s.surface,
+            label: SURFACE_LABEL[s.surface] ?? s.surface,
+            count: s.call_count,
+            cost_cents: s.cost_cents,
+          }))}
+        />
+      )}
+      {summary.by_model.length > 0 && (
+        <BreakdownTable
+          title="By model"
+          rows={summary.by_model.map((m) => ({
+            key: m.model,
+            label: m.model,
+            count: m.call_count,
+            cost_cents: m.cost_cents,
+          }))}
+        />
+      )}
+    </div>
+  );
+}
+
+interface BreakdownRow {
+  key: string;
+  label: string;
+  count: number;
+  cost_cents: number;
+}
+
+function BreakdownTable({
+  title,
+  rows,
+}: {
+  title: string;
+  rows: BreakdownRow[];
+}) {
+  return (
+    <div className="flex flex-col gap-xs">
+      <h3 className="t-meta">{title}</h3>
+      <ul
+        className="flex flex-col gap-xxs list-none p-0 m-0"
+        aria-label={title}
+      >
+        {rows.map((r) => (
+          <li
+            key={r.key}
+            className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-baseline gap-md"
+          >
+            <span className="truncate t-small">{r.label}</span>
+            <span className="t-mono text-xs text-text-tertiary tabular-nums">
+              {r.count.toLocaleString()}
+            </span>
+            <span className="t-mono text-sm tabular-nums">
+              {formatCost(r.cost_cents)}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+const SURFACE_LABEL: Record<string, string> = {
+  chat_orchestrator: "Chat (main loop)",
+  chat_orchestrator_retry: "Chat (strict retry)",
+  topic_gate: "Topic gate",
+  thread_title: "Thread title",
+  briefing_narrative: "Briefing narrative",
+  briefing_narrative_retry: "Briefing retry",
+  news_summary: "News summary",
+};
+
+function formatCost(cents: number): string {
+  if (cents === 0) return "$0.00";
+  const dollars = cents / 100;
+  if (dollars < 0.01) return `$${dollars.toFixed(4)}`;
+  if (dollars < 1) return `$${dollars.toFixed(3)}`;
+  return `$${dollars.toFixed(2)}`;
+}
+
+function formatTokens(n: number): string {
+  if (n < 1000) return n.toString();
+  if (n < 1_000_000) return `${(n / 1000).toFixed(1)}K`;
+  return `${(n / 1_000_000).toFixed(2)}M`;
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {

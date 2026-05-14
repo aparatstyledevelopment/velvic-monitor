@@ -13,6 +13,7 @@ const base: ResponseCardData = {
   warning: null,
   streaming: false,
   runningTool: null,
+  toolEvents: [],
   suggested_followups: [],
 };
 

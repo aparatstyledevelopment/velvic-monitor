@@ -30,7 +30,7 @@ from pydantic import BaseModel
 
 from app.chat.models import ChatEngineCall, ChatThread, ChatTurn
 from app.chat.orchestrator import ChatOrchestrator
-from app.chat.topic_gate import TopicDecision
+from app.chat.topic_gate import ClassifyResult, TopicDecision
 from app.chat.types import CompletionEvent
 from app.engine.envelope import EngineResult, SourceRef
 from app.engine.models import EngineCall
@@ -359,9 +359,9 @@ def _orchestrator_with_client(
         company_name: str = "",
         ticker: str = "",
         model: str | None = None,
-    ) -> TopicDecision:
+    ) -> ClassifyResult:
         _ = (company_name, ticker, model)
-        return TopicDecision(on_topic=on_topic, reason=reason)
+        return ClassifyResult(decision=TopicDecision(on_topic=on_topic, reason=reason), response=None)
 
     scripts: list[list[_ScriptedToolCall | _ScriptedFinal]] = [list(script)]
 
@@ -386,9 +386,9 @@ def _orchestrator_with_two_scripts(
         company_name: str = "",
         ticker: str = "",
         model: str | None = None,
-    ) -> TopicDecision:
+    ) -> ClassifyResult:
         _ = (company_name, ticker, model)
-        return TopicDecision(on_topic=True, reason="")
+        return ClassifyResult(decision=TopicDecision(on_topic=True, reason=""), response=None)
 
     scripts: list[list[_ScriptedToolCall | _ScriptedFinal]] = [list(first), list(second)]
 
@@ -435,9 +435,9 @@ async def test_off_topic_emits_refusal_without_calling_sdk(
         company_name: str = "",
         ticker: str = "",
         model: str | None = None,
-    ) -> TopicDecision:
+    ) -> ClassifyResult:
         _ = (company_name, ticker, model)
-        return TopicDecision(on_topic=False, reason="not a Swedish-listed name")
+        return ClassifyResult(decision=TopicDecision(on_topic=False, reason="not a Swedish-listed name"), response=None)
 
     orch = ChatOrchestrator(
         client_factory=client_factory,  # type: ignore[arg-type]
@@ -483,7 +483,7 @@ async def test_bypass_topic_gate_skips_classifier_and_runs_main_provider(
         company_name: str = "",
         ticker: str = "",
         model: str | None = None,
-    ) -> TopicDecision:
+    ) -> ClassifyResult:
         _ = (company_name, ticker, model)
         gate_calls.append(1)
         raise AssertionError("gate classifier must not be called when bypass=True")

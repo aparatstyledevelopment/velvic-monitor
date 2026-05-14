@@ -690,6 +690,121 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "LLMModelUsage": {
+        "properties": {
+          "call_count": {
+            "title": "Call Count",
+            "type": "integer"
+          },
+          "completion_tokens": {
+            "title": "Completion Tokens",
+            "type": "integer"
+          },
+          "cost_cents": {
+            "title": "Cost Cents",
+            "type": "number"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "prompt_tokens": {
+            "title": "Prompt Tokens",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "model",
+          "call_count",
+          "prompt_tokens",
+          "completion_tokens",
+          "cost_cents"
+        ],
+        "title": "LLMModelUsage",
+        "type": "object"
+      },
+      "LLMSurfaceUsage": {
+        "properties": {
+          "call_count": {
+            "title": "Call Count",
+            "type": "integer"
+          },
+          "completion_tokens": {
+            "title": "Completion Tokens",
+            "type": "integer"
+          },
+          "cost_cents": {
+            "title": "Cost Cents",
+            "type": "number"
+          },
+          "prompt_tokens": {
+            "title": "Prompt Tokens",
+            "type": "integer"
+          },
+          "surface": {
+            "title": "Surface",
+            "type": "string"
+          }
+        },
+        "required": [
+          "surface",
+          "call_count",
+          "prompt_tokens",
+          "completion_tokens",
+          "cost_cents"
+        ],
+        "title": "LLMSurfaceUsage",
+        "type": "object"
+      },
+      "LLMUsageSummary": {
+        "properties": {
+          "by_model": {
+            "items": {
+              "$ref": "#/components/schemas/LLMModelUsage"
+            },
+            "title": "By Model",
+            "type": "array"
+          },
+          "by_surface": {
+            "items": {
+              "$ref": "#/components/schemas/LLMSurfaceUsage"
+            },
+            "title": "By Surface",
+            "type": "array"
+          },
+          "last_30d_cost_cents": {
+            "title": "Last 30D Cost Cents",
+            "type": "number"
+          },
+          "total_call_count": {
+            "title": "Total Call Count",
+            "type": "integer"
+          },
+          "total_completion_tokens": {
+            "title": "Total Completion Tokens",
+            "type": "integer"
+          },
+          "total_cost_cents": {
+            "title": "Total Cost Cents",
+            "type": "number"
+          },
+          "total_prompt_tokens": {
+            "title": "Total Prompt Tokens",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total_call_count",
+          "total_prompt_tokens",
+          "total_completion_tokens",
+          "total_cost_cents",
+          "last_30d_cost_cents",
+          "by_surface",
+          "by_model"
+        ],
+        "title": "LLMUsageSummary",
+        "type": "object"
+      },
       "LoginRequest": {
         "properties": {
           "email": {
@@ -1688,6 +1803,55 @@
         "summary": "Health",
         "tags": [
           "health"
+        ]
+      }
+    },
+    "/api/llm/usage/summary": {
+      "get": {
+        "operationId": "usage_summary_api_llm_usage_summary_get",
+        "parameters": [
+          {
+            "in": "cookie",
+            "name": "access_token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LLMUsageSummary"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Usage Summary",
+        "tags": [
+          "llm_usage"
         ]
       }
     },

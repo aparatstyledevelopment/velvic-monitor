@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.models import Company
 from app.chat.anthropic_messages_client import call_messages
 from app.chat.citations import find_uncited_numerics, parse_citations
+from app.chat.llm_log import LLMCallStats, LLMLogContext, record_call
 from app.core.logging import logger
 from app.engine.drivers.prompts import (
     BRIEFING_SYSTEM_PROMPT,
@@ -75,6 +76,18 @@ async def get_press_release_summary(
                 ),
                 max_tokens=80,
                 temperature=0.0,
+            )
+            await record_call(
+                session,
+                surface="news_summary",
+                transport="messages_api",
+                stats=LLMCallStats(
+                    model=result.model,
+                    prompt_tokens=result.prompt_tokens,
+                    completion_tokens=result.completion_tokens,
+                    cost_cents=result.cost_cents,
+                ),
+                ctx=LLMLogContext(company_id=item.company_id),
             )
             summary = result.text.strip().splitlines()[0][:300] if result.text else None
             if summary:
@@ -209,6 +222,18 @@ async def generate_briefing(
         temperature=0.2,
         model=model,
     )
+    await record_call(
+        session,
+        surface="briefing_narrative",
+        transport="messages_api",
+        stats=LLMCallStats(
+            model=response.model,
+            prompt_tokens=response.prompt_tokens,
+            completion_tokens=response.completion_tokens,
+            cost_cents=response.cost_cents,
+        ),
+        ctx=LLMLogContext(company_id=company_id),
+    )
     parsed = _parse_briefing_response(response.text, valid_ids)
 
     if parsed.has_uncited_numerics:
@@ -224,6 +249,18 @@ async def generate_briefing(
             max_tokens=1500,
             temperature=0.0,
             model=model,
+        )
+        await record_call(
+            session,
+            surface="briefing_narrative_retry",
+            transport="messages_api",
+            stats=LLMCallStats(
+                model=retry.model,
+                prompt_tokens=retry.prompt_tokens,
+                completion_tokens=retry.completion_tokens,
+                cost_cents=retry.cost_cents,
+            ),
+            ctx=LLMLogContext(company_id=company_id),
         )
         parsed = _parse_briefing_response(retry.text, valid_ids)
         response = retry

@@ -53,6 +53,7 @@ from app.chat.anthropic_messages_client import (
     cost_cents,
 )
 from app.chat.citations import find_uncited_numerics, parse_citations
+from app.chat.llm_log import LLMCallStats, LLMLogContext, record_call
 from app.chat.models import ChatEngineCall, ChatThread, ChatTurn
 from app.chat.prompts import render_chat_system_prompt
 from app.chat.sdk_hooks import TurnHookState, make_post_tool_use_hook
@@ -61,7 +62,7 @@ from app.chat.sdk_mcp import (
     build_engine_mcp_server,
     strip_mcp_prefix,
 )
-from app.chat.topic_gate import TopicDecision
+from app.chat.topic_gate import ClassifyResult, TopicDecision
 from app.chat.types import CompletionEvent
 from app.core.errors import ForbiddenError, NotFoundError
 from app.core.logging import logger
@@ -71,7 +72,7 @@ DEFAULT_TOOL_MODULES = ("drivers", "shared")
 HISTORY_LIMIT = 20  # most-recent N turns sent back to the model
 
 ClientFactory = Callable[[ClaudeAgentOptions], ClaudeSDKClient]
-GateClassifyFn = Callable[..., Awaitable[TopicDecision]]
+GateClassifyFn = Callable[..., Awaitable[ClassifyResult]]
 
 
 @dataclass
@@ -156,11 +157,30 @@ async def _drive_turn(
             user_id=str(user.id),
         )
     else:
-        decision = await orch._gate_classify_fn(
+        gate_result = await orch._gate_classify_fn(
             user_message,
             company_name=company.name,
             ticker=company.ticker,
         )
+        decision = gate_result.decision
+        if gate_result.response is not None:
+            await record_call(
+                session,
+                surface="topic_gate",
+                transport="messages_api",
+                stats=LLMCallStats(
+                    model=gate_result.response.model,
+                    prompt_tokens=gate_result.response.prompt_tokens,
+                    completion_tokens=gate_result.response.completion_tokens,
+                    cost_cents=gate_result.response.cost_cents,
+                ),
+                ctx=LLMLogContext(
+                    org_id=org.id,
+                    user_id=user.id,
+                    thread_id=thread_id,
+                    company_id=company.id,
+                ),
+            )
         if not decision.on_topic:
             refusal = topic_gate_mod.render_refusal(
                 company_name=company.name, reason=decision.reason
@@ -197,12 +217,32 @@ async def _drive_turn(
         state=state,
     )
 
+    log_ctx = LLMLogContext(
+        org_id=org.id,
+        user_id=user.id,
+        thread_id=thread_id,
+        company_id=company.id,
+    )
+
     client = orch._client_factory(options)
     async with client:
         await client.query(user_message)
         async for msg in client.receive_response():
             async for ev in _events_from_sdk_message(msg, state):
                 yield ev
+
+    await record_call(
+        session,
+        surface="chat_orchestrator",
+        transport="sdk",
+        stats=LLMCallStats(
+            model=state.model or DEFAULT_MODEL,
+            prompt_tokens=state.prompt_tokens,
+            completion_tokens=state.completion_tokens,
+            cost_cents=state.cost_cents_total,
+        ),
+        ctx=log_ctx,
+    )
 
     final_text = state.final_text or "".join(state.fallback_text_parts)
     valid_ids = set(state.hooks.engine_call_ids)
@@ -231,6 +271,18 @@ async def _drive_turn(
             async for msg in retry_client.receive_response():
                 async for _ev in _events_from_sdk_message(msg, retry_state):
                     pass
+        await record_call(
+            session,
+            surface="chat_orchestrator_retry",
+            transport="sdk",
+            stats=LLMCallStats(
+                model=retry_state.model or DEFAULT_MODEL,
+                prompt_tokens=retry_state.prompt_tokens,
+                completion_tokens=retry_state.completion_tokens,
+                cost_cents=retry_state.cost_cents_total,
+            ),
+            ctx=log_ctx,
+        )
         state.prompt_tokens += retry_state.prompt_tokens
         state.completion_tokens += retry_state.completion_tokens
         state.cost_cents_total += retry_state.cost_cents_total
@@ -294,11 +346,24 @@ async def _drive_turn(
     if assistant_idx <= 2 and thread_title_mod.looks_like_raw_user_message(
         thread.title, user_message
     ):
-        new_title = await thread_title_mod.generate_title(
+        title_result = await thread_title_mod.generate_title(
             user_message=user_message, assistant_text=final_text
         )
-        if new_title:
-            thread.title = new_title
+        if title_result.response is not None:
+            await record_call(
+                session,
+                surface="thread_title",
+                transport="messages_api",
+                stats=LLMCallStats(
+                    model=title_result.response.model,
+                    prompt_tokens=title_result.response.prompt_tokens,
+                    completion_tokens=title_result.response.completion_tokens,
+                    cost_cents=title_result.response.cost_cents,
+                ),
+                ctx=log_ctx,
+            )
+        if title_result.title:
+            thread.title = title_result.title
 
     await session.commit()
 
