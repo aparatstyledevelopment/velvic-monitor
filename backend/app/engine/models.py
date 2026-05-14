@@ -64,7 +64,10 @@ class BriefingCard(Base):
     module: Mapped[str] = mapped_column(Text, nullable=False)
     as_of_date: Mapped[date] = mapped_column(Date, nullable=False)
     narrative: Mapped[str] = mapped_column(Text, nullable=False)
-    smart_chips: Mapped[list[str]] = mapped_column(JSONB, nullable=False)
+    # Each chip is {"title": "<=4 words>", "prompt": "<full question>"}.
+    # Legacy rows persisted before the title/prompt split may contain bare
+    # strings; the API layer normalises both shapes via SmartChip.
+    smart_chips: Mapped[list[dict[str, str]]] = mapped_column(JSONB, nullable=False)
     citation_spans: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False)
     fact_pack_snapshot: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     engine_call_ids: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False)

@@ -4,8 +4,8 @@ Runs every step in-process (no Celery dispatch) for the demo seed.
 Intended for local development and the first deploy's smoke test.
 
 Run:
-    python -m app.admin.backfill              # default 14-day window
-    python -m app.admin.backfill --days 60    # longer history
+    python -m app.admin.backfill              # default 90-day window
+    python -m app.admin.backfill --days 14    # shorter history
 
 Prints a row-count summary for each step so it's clear what landed in
 the database.
@@ -86,7 +86,7 @@ async def _safe_step(
     return True
 
 
-async def backfill(*, days: int = 14) -> None:
+async def backfill(*, days: int = 90) -> None:
     window = DateRange.trailing(days=days)
     async with SessionLocal() as session:
         rows = (
@@ -94,13 +94,20 @@ async def backfill(*, days: int = 14) -> None:
             .scalars()
             .all()
         )
-        tickers = [c.ticker for c in rows]
-        symbols = [c.yahoo_symbol for c in rows]
-        ir_feeds = [(c.id, c.ir_rss_url) for c in rows if c.ir_rss_url]
+        # Snapshot every attribute we'll need AFTER potential rollbacks into
+        # plain Python — SQLAlchemy expires ORM attributes on rollback and a
+        # later `c.ticker` would trigger an async lazy-load that fails with
+        # MissingGreenlet inside the asyncio loop.
+        companies: list[tuple[int, str, str, str | None]] = [
+            (c.id, c.ticker, c.yahoo_symbol, c.ir_rss_url) for c in rows
+        ]
+        tickers = [t for _, t, _, _ in companies]
+        symbols = [y for _, _, y, _ in companies]
+        ir_feeds = [(cid, rss) for cid, _, _, rss in companies if rss]
 
         print(
             f"backfill window {window.start.isoformat()} → {window.end.isoformat()} "
-            f"({len(rows)} companies: {', '.join(tickers)})"
+            f"({len(companies)} companies: {', '.join(tickers)})"
         )
 
         if symbols:
@@ -124,9 +131,7 @@ async def backfill(*, days: int = 14) -> None:
         as_of = date.today() - timedelta(days=1)
         attributed = 0
         briefed = 0
-        for c in rows:
-            ticker = c.ticker
-            company_id = c.id
+        for company_id, ticker, _yahoo, _rss in companies:
             if ticker.startswith("^"):
                 continue
             try:
@@ -167,7 +172,7 @@ async def backfill(*, days: int = 14) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--days", type=int, default=14)
+    parser.add_argument("--days", type=int, default=90)
     args = parser.parse_args()
     asyncio.run(backfill(days=args.days))
 

@@ -17,6 +17,7 @@ from dataclasses import dataclass
 import httpx
 
 from app.core.config import get_settings
+from app.core.logging import logger
 
 DEFAULT_MODEL = "claude-opus-4-7"
 PRICING_CENTS_PER_MTOK: dict[str, dict[str, float]] = {
@@ -25,6 +26,13 @@ PRICING_CENTS_PER_MTOK: dict[str, dict[str, float]] = {
     "claude-opus-4-7": {"prompt": 1500.0, "completion": 7500.0},
 }
 _BASE_URL = "https://api.anthropic.com/v1/messages"
+
+
+def resolve_model(explicit: str | None = None) -> str:
+    """Pick a model: explicit arg → ANTHROPIC_MODEL env → DEFAULT_MODEL."""
+    if explicit:
+        return explicit
+    return get_settings().anthropic_model or DEFAULT_MODEL
 
 
 @dataclass(frozen=True)
@@ -54,15 +62,16 @@ async def call_messages(
 ) -> MessagesResponse:
     """Single-turn POST /v1/messages with a system + user prompt.
 
-    Raises RuntimeError when ANTHROPIC_API_KEY is unset. Callers that
-    need a graceful fallback (mock mode for local backfill) must catch
-    that themselves.
+    Raises RuntimeError when ANTHROPIC_API_KEY is unset.
+    On 4xx/5xx from Anthropic, logs the response body before re-raising
+    so callers can see the actual API error (model unavailable, body
+    schema mismatch, rate-limit, etc.) instead of a bare HTTPStatusError.
     """
     api_key = get_settings().anthropic_api_key
     if not api_key:
         raise RuntimeError("ANTHROPIC_API_KEY not configured")
 
-    chosen_model = model or DEFAULT_MODEL
+    chosen_model = resolve_model(model)
     body: dict[str, object] = {
         "model": chosen_model,
         "max_tokens": max_tokens,
@@ -77,10 +86,10 @@ async def call_messages(
     }
 
     if http_client is not None:
-        data = await _post(http_client, body, headers)
+        data = await _post(http_client, body, headers, chosen_model)
     else:
         async with httpx.AsyncClient(timeout=httpx.Timeout(60.0)) as client:
-            data = await _post(client, body, headers)
+            data = await _post(client, body, headers, chosen_model)
 
     raw_content = data.get("content")
     blocks: list[dict[str, object]] = raw_content if isinstance(raw_content, list) else []
@@ -102,9 +111,23 @@ async def _post(
     client: httpx.AsyncClient,
     body: dict[str, object],
     headers: dict[str, str],
+    model: str,
 ) -> dict[str, object]:
     resp = await client.post(_BASE_URL, json=body, headers=headers)
-    resp.raise_for_status()
+    if resp.status_code >= 400:
+        body_text = resp.text[:2000]
+        logger.warning(
+            "anthropic_api_error",
+            status=resp.status_code,
+            model=model,
+            response_body=body_text,
+        )
+        # Make the actual API error visible in the propagating exception too.
+        raise httpx.HTTPStatusError(
+            f"Anthropic {resp.status_code} for model={model}: {body_text}",
+            request=resp.request,
+            response=resp,
+        )
     result: dict[str, object] = resp.json()
     return result
 

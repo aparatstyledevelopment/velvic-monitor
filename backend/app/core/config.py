@@ -59,6 +59,7 @@ class Settings(BaseSettings):
     langfuse_secret_key: str | None = None
 
     anthropic_api_key: str | None = None
+    anthropic_model: str | None = None  # overrides DEFAULT_MODEL when set
     openai_api_key: str | None = None
     google_api_key: str | None = None
     fred_api_key: str | None = None
