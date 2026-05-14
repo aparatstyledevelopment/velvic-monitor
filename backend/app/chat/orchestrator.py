@@ -52,7 +52,12 @@ from app.chat.anthropic_messages_client import (
     PRICING_CENTS_PER_MTOK,
     cost_cents,
 )
-from app.chat.citations import find_uncited_numerics, parse_citations
+from app.chat.citations import (
+    auto_ground,
+    build_values_index,
+    find_uncited_numerics,
+    parse_citations,
+)
 from app.chat.llm_log import LLMCallStats, LLMLogContext, record_call
 from app.chat.models import ChatEngineCall, ChatThread, ChatTurn
 from app.chat.prompts import render_chat_system_prompt
@@ -246,7 +251,9 @@ async def _drive_turn(
 
     final_text = state.final_text or "".join(state.fallback_text_parts)
     valid_ids = set(state.hooks.engine_call_ids)
+    values_index = build_values_index(state.hooks.payloads.items())
     parsed = parse_citations(final_text, valid_ids)
+    parsed = auto_ground(parsed, values_index, valid_ids)
     uncited = find_uncited_numerics(parsed.text, parsed.spans)
     warning_code: str | None = None
 
@@ -292,6 +299,7 @@ async def _drive_turn(
             or "".join(retry_state.fallback_text_parts)
         )
         retry_parsed = parse_citations(retry_text, valid_ids)
+        retry_parsed = auto_ground(retry_parsed, values_index, valid_ids)
         retry_uncited = find_uncited_numerics(retry_parsed.text, retry_parsed.spans)
         if retry_uncited:
             warning_code = "uncited_numeric"

@@ -5,6 +5,16 @@ marker `[ec_xxxxxx]` referencing a known engine_call_id. The parser
 extracts spans and validates ids against an allow-list. The validator
 flags numerics not covered by a citation.
 
+Layered defense:
+- `parse_citations` strips markers and yields spans (existing).
+- `find_uncited_numerics` regex-flags financial numbers with no marker
+  (existing).
+- `build_values_index` + `auto_ground` deterministically inject markers
+  for uncited numbers whose value is unambiguous across the available
+  engine results. The model still owns disambiguation when the same
+  value appears in two calls (e.g. `-0.62%` shared by `price_move` and
+  `peer_returns`); those remain uncited.
+
 This module is shared between the chat orchestrator (Phase 2) and the
 briefing composer (Phase 1).
 """
@@ -12,7 +22,9 @@ briefing composer (Phase 1).
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
+from typing import Any
 
 from app.core.logging import logger
 
@@ -125,3 +137,104 @@ def find_uncited_numerics(
             continue
         out.append((m.start(), m.end(), m.group(0)))
     return out
+
+
+# ----------------------------------------------------------------------------
+# Deterministic grounder
+# ----------------------------------------------------------------------------
+
+
+def build_values_index(
+    sources: Iterable[tuple[str, Any]],
+) -> dict[str, set[str]]:
+    """Map canonical numeric forms → set of engine_call_ids that produced them.
+
+    `sources` is `(engine_call_id, payload)` pairs; payload is any
+    JSON-able structure (a `data` dict from an engine envelope, a Pydantic
+    model dump, etc.). Each numeric leaf is normalised to every string
+    form `_FINANCIAL_NUMBER_RE` might capture for it (2dp and 1dp,
+    percent-suffixed, and thousands-separated for integers ≥1000). Keys
+    starting with `_` are skipped (they're shadow markers, not source
+    values).
+    """
+    out: dict[str, set[str]] = {}
+    for ec_id, payload in sources:
+        for form in _walk_numerics(payload):
+            out.setdefault(form, set()).add(ec_id)
+    return out
+
+
+def auto_ground(
+    parsed: ParseResult,
+    values_index: dict[str, set[str]],
+    valid_ec_ids: set[str],
+) -> ParseResult:
+    """Inject `[ec_xxx]` markers for uncited numerics with a unique source.
+
+    Numbers whose canonical form appears under exactly one engine_call_id
+    in `values_index` get a citation inserted; collisions are left
+    uncited so the regex validator can flag them and trigger a strict
+    retry. No-op when there are no uncited numerics or no unique matches.
+    """
+    uncited = find_uncited_numerics(parsed.text, parsed.spans)
+    if not uncited:
+        return parsed
+
+    inserts: list[tuple[int, str]] = []
+    for _start, end, value in uncited:
+        candidates = values_index.get(value)
+        if candidates is None or len(candidates) != 1:
+            continue
+        ec_id = next(iter(candidates))
+        if ec_id not in valid_ec_ids:
+            continue
+        inserts.append((end, ec_id))
+
+    if not inserts:
+        return parsed
+
+    inserts.sort(key=lambda x: x[0], reverse=True)
+    marked = parsed.text
+    for pos, ec_id in inserts:
+        marked = f"{marked[:pos]} [{ec_id}]{marked[pos:]}"
+
+    reparsed = parse_citations(marked, valid_ec_ids)
+    combined_spans = list(parsed.spans) + list(reparsed.spans)
+    combined_spans.sort(key=lambda s: (s.start_char, s.end_char))
+    return ParseResult(text=reparsed.text, spans=combined_spans)
+
+
+def _walk_numerics(node: Any) -> Iterator[str]:
+    if isinstance(node, dict):
+        for k, v in node.items():
+            if isinstance(k, str) and k.startswith("_"):
+                continue
+            yield from _walk_numerics(v)
+    elif isinstance(node, list):
+        for v in node:
+            yield from _walk_numerics(v)
+    elif isinstance(node, bool) or node is None:
+        return
+    elif isinstance(node, (int, float)):
+        yield from _canonical_forms(float(node))
+    elif isinstance(node, str):
+        # Decimals come through model_dump(mode="json") as strings;
+        # parse if shaped like a number, otherwise skip.
+        try:
+            yield from _canonical_forms(float(node))
+        except ValueError:
+            return
+
+
+def _canonical_forms(value: float) -> Iterator[str]:
+    """Emit every string form `_FINANCIAL_NUMBER_RE` might capture for `value`.
+
+    The regex strips leading sign, so we always canonicalise to abs(value).
+    """
+    a = abs(value)
+    yield f"{a:.2f}"
+    yield f"{a:.1f}"
+    yield f"{a:.2f}%"
+    yield f"{a:.1f}%"
+    if a == int(a) and a >= 1000:
+        yield f"{int(a):,}"

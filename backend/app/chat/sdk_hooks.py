@@ -37,6 +37,9 @@ class TurnHookState:
     engine_call_ids: list[str] = field(default_factory=list)
     tool_names: list[str] = field(default_factory=list)
     tool_errors: list[str] = field(default_factory=list)
+    # ec_id -> envelope `data` payload. Used by the orchestrator to build a
+    # values index for deterministic citation grounding (citations.auto_ground).
+    payloads: dict[str, Any] = field(default_factory=dict)
 
 
 def make_post_tool_use_hook(state: TurnHookState) -> HookCallback:
@@ -61,6 +64,9 @@ def make_post_tool_use_hook(state: TurnHookState) -> HookCallback:
         if isinstance(ec_id, str) and ec_id.startswith("ec_"):
             state.engine_call_ids.append(ec_id)
             state.tool_names.append(bare_name)
+            payload = envelope.get("data")
+            if payload is not None:
+                state.payloads[ec_id] = payload
         elif "error" in envelope:
             state.tool_errors.append(str(envelope["error"]))
         return {}

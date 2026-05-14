@@ -19,7 +19,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import Company
 from app.chat.anthropic_messages_client import call_messages
-from app.chat.citations import find_uncited_numerics, parse_citations
+from app.chat.citations import (
+    auto_ground,
+    build_values_index,
+    find_uncited_numerics,
+    parse_citations,
+)
 from app.chat.llm_log import LLMCallStats, LLMLogContext, record_call
 from app.core.logging import logger
 from app.engine.drivers.prompts import (
@@ -166,27 +171,46 @@ async def build_fact_pack(
 
 
 def _bundle(result: EngineResult[Any]) -> dict[str, Any]:
+    data = result.data.model_dump(mode="json")
+    if isinstance(data, dict):
+        data["_engine_call_id"] = result.engine_call_id
     return {
         "engine_call_id": result.engine_call_id,
-        "data": result.data.model_dump(mode="json"),
+        "data": data,
     }
+
+
+_FACT_PACK_SECTIONS = (
+    "price_move",
+    "benchmark",
+    "peer_returns",
+    "sector_proxy",
+    "macro_snapshot",
+    "news",
+    "attribution",
+)
 
 
 def fact_pack_engine_call_ids(pack: dict[str, Any]) -> list[str]:
     ids: list[str] = []
-    for key in (
-        "price_move",
-        "benchmark",
-        "peer_returns",
-        "sector_proxy",
-        "macro_snapshot",
-        "news",
-        "attribution",
-    ):
+    for key in _FACT_PACK_SECTIONS:
         ec_id = pack.get(key, {}).get("engine_call_id")
         if isinstance(ec_id, str) and ec_id.startswith("ec_"):
             ids.append(ec_id)
     return ids
+
+
+def fact_pack_values_index(pack: dict[str, Any]) -> dict[str, set[str]]:
+    sources: list[tuple[str, Any]] = []
+    for key in _FACT_PACK_SECTIONS:
+        section = pack.get(key)
+        if not isinstance(section, dict):
+            continue
+        ec_id = section.get("engine_call_id")
+        if not isinstance(ec_id, str) or not ec_id.startswith("ec_"):
+            continue
+        sources.append((ec_id, section.get("data")))
+    return build_values_index(sources)
 
 
 # ----------------------------------------------------------------------------
@@ -207,6 +231,7 @@ async def generate_briefing(
 
     pack = await build_fact_pack(session, company_id=company_id, as_of=as_of)
     valid_ids = set(fact_pack_engine_call_ids(pack))
+    values_index = fact_pack_values_index(pack)
 
     user_prompt = (
         f"Company: {company.name} ({company.ticker})\n"
@@ -232,7 +257,7 @@ async def generate_briefing(
         ),
         ctx=LLMLogContext(company_id=company_id),
     )
-    parsed = _parse_briefing_response(response.text, valid_ids)
+    parsed = _parse_briefing_response(response.text, valid_ids, values_index)
 
     if parsed.has_uncited_numerics:
         logger.warning(
@@ -259,7 +284,7 @@ async def generate_briefing(
             ),
             ctx=LLMLogContext(company_id=company_id),
         )
-        parsed = _parse_briefing_response(retry.text, valid_ids)
+        parsed = _parse_briefing_response(retry.text, valid_ids, values_index)
         response = retry
 
     existing = await session.scalar(
@@ -317,12 +342,18 @@ class ParsedBriefing:
     uncited: list[tuple[int, int, str]]
 
 
-def _parse_briefing_response(raw: str, valid_ids: set[str]) -> ParsedBriefing:
+def _parse_briefing_response(
+    raw: str,
+    valid_ids: set[str],
+    values_index: dict[str, set[str]] | None = None,
+) -> ParsedBriefing:
     payload = _extract_json(raw)
     narrative_raw = payload.get("narrative") or ""
     chips = _normalise_smart_chips(payload.get("smart_chips"))
 
     parsed = parse_citations(narrative_raw, valid_ids)
+    if values_index:
+        parsed = auto_ground(parsed, values_index, valid_ids)
     uncited = find_uncited_numerics(parsed.text, parsed.spans)
     return ParsedBriefing(
         narrative=parsed.text,
