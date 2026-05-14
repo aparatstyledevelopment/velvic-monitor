@@ -160,6 +160,7 @@ async def post_turn(
         user_message=body.message,
         session=session,
         user=user,
+        bypass_topic_gate=body.bypass_topic_gate,
     )
     return sse_response(iterator)
 
@@ -205,5 +206,6 @@ def _turn_out(t: ChatTurn) -> ChatTurnOut:
         cost_cents=t.cost_cents,
         finish_reason=t.finish_reason,
         warning=t.warning,
+        suggested_followups=t.suggested_followups or [],
         created_at=t.created_at,
     )

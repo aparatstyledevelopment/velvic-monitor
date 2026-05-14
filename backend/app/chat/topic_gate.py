@@ -1,16 +1,12 @@
 """Topic gate: cheap-classifier guard in front of the expensive tool loop.
 
-Runs a single small-model completion on the user's latest message and
-either returns ON_TOPIC (orchestrator proceeds) or OFF_TOPIC with a short
-reason (orchestrator emits the canonical refusal).
+Runs a single small-model completion on the user's latest message,
+scoped to the thread's company. Defaults to ON_TOPIC; only refuses on
+hard violations (jailbreaks, trade recs, fully off-topic prompts).
 
 Output contract is JSON:
   {"on_topic": true}
   {"on_topic": false, "reason": "<short reason>"}
-
-The classifier is provider-agnostic: takes any LLMProvider. In production
-the orchestrator wires this to the cheapest model available on the org's
-preferred provider (e.g. Anthropic Haiku).
 """
 
 from __future__ import annotations
@@ -19,8 +15,8 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
-from app.chat.prompts import REFUSAL_TEMPLATE, TOPIC_GATE_SYSTEM
-from app.chat.providers.base import LLMProvider, Message
+from app.chat.anthropic_messages_client import MessagesResponse, call_messages
+from app.chat.prompts import REFUSAL_TEMPLATE, render_topic_gate_system
 from app.core.logging import logger
 
 
@@ -30,24 +26,45 @@ class TopicDecision:
     reason: str  # empty when on-topic
 
 
+@dataclass(frozen=True)
+class ClassifyResult:
+    decision: TopicDecision
+    response: MessagesResponse | None  # None when the call short-circuited
+
+
 CLASSIFIER_MAX_TOKENS = 96
 
 
 async def classify(
-    provider: LLMProvider,
     message: str,
     *,
+    company_name: str,
+    ticker: str,
     model: str | None = None,
-) -> TopicDecision:
-    """Return ON_TOPIC / OFF_TOPIC decision for `message`."""
-    response = await provider.complete(
-        system=TOPIC_GATE_SYSTEM,
-        messages=[Message(role="user", content=message)],
-        max_tokens=CLASSIFIER_MAX_TOKENS,
-        temperature=0.0,
-        model=model,
+) -> ClassifyResult:
+    """Return ON_TOPIC / OFF_TOPIC decision for `message` plus the raw
+    Messages response for cost/usage logging upstream.
+
+    The system prompt is rendered with the thread's company so the
+    classifier knows what "in scope" means for this conversation.
+    """
+    try:
+        response = await call_messages(
+            system=render_topic_gate_system(
+                company_name=company_name, ticker=ticker
+            ),
+            user=message,
+            max_tokens=CLASSIFIER_MAX_TOKENS,
+            model=model,
+        )
+    except RuntimeError as e:
+        logger.warning("topic_gate_unavailable", error=str(e))
+        return ClassifyResult(
+            decision=TopicDecision(on_topic=True, reason=""), response=None
+        )
+    return ClassifyResult(
+        decision=_parse_decision(response.text), response=response
     )
-    return _parse_decision(response.text)
 
 
 def _parse_decision(raw: str) -> TopicDecision:
@@ -56,18 +73,17 @@ def _parse_decision(raw: str) -> TopicDecision:
         payload: Any = json.loads(text)
     except json.JSONDecodeError:
         logger.warning("topic_gate_unparseable", raw=raw[:200])
-        return TopicDecision(on_topic=False, reason="classifier output unparseable.")
+        # Fail open: prefer letting the prompt through over a false refusal.
+        return TopicDecision(on_topic=True, reason="")
 
     if not isinstance(payload, dict):
         logger.warning("topic_gate_unparseable", raw=raw[:200])
-        return TopicDecision(on_topic=False, reason="classifier output not an object.")
+        return TopicDecision(on_topic=True, reason="")
 
     on_topic = payload.get("on_topic")
     if not isinstance(on_topic, bool):
         logger.warning("topic_gate_unparseable", raw=raw[:200])
-        return TopicDecision(
-            on_topic=False, reason="classifier missing on_topic boolean."
-        )
+        return TopicDecision(on_topic=True, reason="")
 
     if on_topic:
         return TopicDecision(on_topic=True, reason="")
@@ -82,7 +98,6 @@ def _parse_decision(raw: str) -> TopicDecision:
 
 
 def _strip_code_fence(text: str) -> str:
-    """Tolerate ```json ... ``` wrappers some models emit despite the prompt."""
     if not text.startswith("```"):
         return text
     stripped = text.strip("`")

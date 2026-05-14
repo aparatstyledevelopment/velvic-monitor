@@ -4,7 +4,7 @@ from collections.abc import AsyncIterator
 
 import pytest
 
-from app.chat.providers.base import CompletionEvent
+from app.chat.types import CompletionEvent
 from app.core.streaming import _serialize_event, sse_response
 
 

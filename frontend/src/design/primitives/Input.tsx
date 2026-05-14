@@ -6,7 +6,7 @@ export type InputProps = InputHTMLAttributes<HTMLInputElement>;
 export const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ className = "", ...rest }, ref) => {
     const classes = [
-      "h-9 w-full px-md rounded-md",
+      "h-control-lg w-full px-md rounded-md text-base",
       "bg-surface text-text-primary placeholder:text-text-tertiary",
       "border border-border",
       "focus:outline-none focus:border-text-primary",

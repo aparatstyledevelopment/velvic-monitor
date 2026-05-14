@@ -6,6 +6,7 @@ from typing import Any
 from uuid import UUID
 
 from sqlalchemy import (
+    ARRAY,
     BigInteger,
     Boolean,
     CheckConstraint,
@@ -96,6 +97,9 @@ class ChatTurn(Base):
     )
     finish_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     warning: Mapped[str | None] = mapped_column(Text, nullable=True)
+    suggested_followups: Mapped[list[str] | None] = mapped_column(
+        ARRAY(Text), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=text("now()")
     )
@@ -127,4 +131,74 @@ class ChatEngineCall(Base):
     )
 
 
-__all__ = ["ChatThread", "ChatTurn", "ChatEngineCall"]
+class LLMCallLog(Base):
+    """One row per LLM call (SDK turn or single-shot Messages call).
+
+    Overview only — no prompts, no responses, no tool inputs. Surfaces the
+    Settings page totals and gives finops a cost trail without retaining
+    sensitive payloads.
+
+    `org_id` is nullable so system-level pipeline calls (the daily briefing
+    composer, news summaries run from Celery) still get recorded; they
+    aggregate as "system" in the summary endpoint.
+    """
+
+    __tablename__ = "llm_call_log"
+
+    id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    )
+    org_id: Mapped[UUID | None] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("org.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    user_id: Mapped[UUID | None] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("app_user.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    thread_id: Mapped[UUID | None] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("chat_thread.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    company_id: Mapped[int | None] = mapped_column(
+        BigInteger,
+        ForeignKey("company.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    surface: Mapped[str] = mapped_column(Text, nullable=False)
+    transport: Mapped[str] = mapped_column(Text, nullable=False)
+    model: Mapped[str] = mapped_column(Text, nullable=False)
+    prompt_tokens: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default=text("0")
+    )
+    completion_tokens: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default=text("0")
+    )
+    cost_cents: Mapped[Decimal] = mapped_column(
+        Numeric(12, 4), nullable=False, server_default=text("0")
+    )
+    latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "surface IN ('chat_orchestrator','chat_orchestrator_retry',"
+            "'topic_gate','thread_title','briefing_narrative',"
+            "'briefing_narrative_retry','news_summary')",
+            name="llm_call_log_surface_check",
+        ),
+        CheckConstraint(
+            "transport IN ('sdk','messages_api')",
+            name="llm_call_log_transport_check",
+        ),
+    )
+
+
+__all__ = ["ChatThread", "ChatTurn", "ChatEngineCall", "LLMCallLog"]

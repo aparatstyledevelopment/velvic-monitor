@@ -18,14 +18,17 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import Company
-from app.chat.citations import find_uncited_numerics, parse_citations
-from app.chat.providers.base import LLMProvider, Message
-from app.chat.providers.factory import get_provider
-from app.core.config import get_settings
+from app.chat.anthropic_messages_client import call_messages
+from app.chat.citations import (
+    auto_ground,
+    build_values_index,
+    find_uncited_numerics,
+    parse_citations,
+)
+from app.chat.llm_log import LLMCallStats, LLMLogContext, record_call
 from app.core.logging import logger
 from app.engine.drivers.prompts import (
     BRIEFING_SYSTEM_PROMPT,
-    BRIEFING_SYSTEM_PROMPT_STRICT,
     NEWS_SUMMARY_PROMPT,
 )
 from app.engine.drivers.tools import (
@@ -67,24 +70,27 @@ async def get_press_release_summary(
 
     summary = item.body_summary
     if summary is None and item.body_text:
-        provider = get_provider(
-            get_settings().anthropic_api_key and "anthropic" or "mock"
-        )
         try:
-            result = await provider.complete(
+            result = await call_messages(
                 system="You write tight one-line IR press-release summaries.",
-                messages=[
-                    Message(
-                        role="user",
-                        content=NEWS_SUMMARY_PROMPT.format(
-                            language=item.language or "Swedish/English",
-                            title=item.headline,
-                            body_text=item.body_text[:4000],
-                        ),
-                    )
-                ],
+                user=NEWS_SUMMARY_PROMPT.format(
+                    language=item.language or "Swedish/English",
+                    title=item.headline,
+                    body_text=item.body_text[:4000],
+                ),
                 max_tokens=80,
-                temperature=0.0,
+            )
+            await record_call(
+                session,
+                surface="news_summary",
+                transport="messages_api",
+                stats=LLMCallStats(
+                    model=result.model,
+                    prompt_tokens=result.prompt_tokens,
+                    completion_tokens=result.completion_tokens,
+                    cost_cents=result.cost_cents,
+                ),
+                ctx=LLMLogContext(company_id=item.company_id),
             )
             summary = result.text.strip().splitlines()[0][:300] if result.text else None
             if summary:
@@ -163,28 +169,82 @@ async def build_fact_pack(
     return pack
 
 
+_FACT_PACK_DECIMAL_PRECISION = 4
+
+
 def _bundle(result: EngineResult[Any]) -> dict[str, Any]:
+    data = _round_numerics(result.data.model_dump(mode="json"))
+    if isinstance(data, dict):
+        data["_engine_call_id"] = result.engine_call_id
     return {
         "engine_call_id": result.engine_call_id,
-        "data": result.data.model_dump(mode="json"),
+        "data": data,
     }
+
+
+def _round_numerics(node: Any) -> Any:
+    """Recursively round numeric leaves to a fixed precision.
+
+    Pydantic's `model_dump(mode="json")` serialises `Decimal` as a string
+    preserving every digit, so a computed return like
+    `(curr - prev) / prev * 100` arrives as
+    `"-0.61657263969171483622350674371"` — long enough that the model
+    copies the verbatim mantissa into prose. 4dp is sufficient signal
+    for both prices and percentage returns; volumes / counts (integers)
+    pass through unchanged.
+    """
+    if isinstance(node, dict):
+        return {k: _round_numerics(v) for k, v in node.items()}
+    if isinstance(node, list):
+        return [_round_numerics(v) for v in node]
+    if isinstance(node, bool):
+        return node
+    if isinstance(node, float):
+        return round(node, _FACT_PACK_DECIMAL_PRECISION)
+    if isinstance(node, str):
+        # Decimals come through model_dump(mode="json") as strings.
+        # Round only when the string parses to a non-integer float.
+        try:
+            f = float(node)
+        except ValueError:
+            return node
+        if f == int(f):
+            return node
+        return f"{f:.{_FACT_PACK_DECIMAL_PRECISION}f}"
+    return node
+
+
+_FACT_PACK_SECTIONS = (
+    "price_move",
+    "benchmark",
+    "peer_returns",
+    "sector_proxy",
+    "macro_snapshot",
+    "news",
+    "attribution",
+)
 
 
 def fact_pack_engine_call_ids(pack: dict[str, Any]) -> list[str]:
     ids: list[str] = []
-    for key in (
-        "price_move",
-        "benchmark",
-        "peer_returns",
-        "sector_proxy",
-        "macro_snapshot",
-        "news",
-        "attribution",
-    ):
+    for key in _FACT_PACK_SECTIONS:
         ec_id = pack.get(key, {}).get("engine_call_id")
         if isinstance(ec_id, str) and ec_id.startswith("ec_"):
             ids.append(ec_id)
     return ids
+
+
+def fact_pack_values_index(pack: dict[str, Any]) -> dict[str, set[str]]:
+    sources: list[tuple[str, Any]] = []
+    for key in _FACT_PACK_SECTIONS:
+        section = pack.get(key)
+        if not isinstance(section, dict):
+            continue
+        ec_id = section.get("engine_call_id")
+        if not isinstance(ec_id, str) or not ec_id.startswith("ec_"):
+            continue
+        sources.append((ec_id, section.get("data")))
+    return build_values_index(sources)
 
 
 # ----------------------------------------------------------------------------
@@ -197,7 +257,6 @@ async def generate_briefing(
     *,
     company_id: int,
     as_of: date,
-    provider: LLMProvider | None = None,
     model: str | None = None,
 ) -> BriefingCard:
     company = await session.get(Company, company_id)
@@ -206,10 +265,7 @@ async def generate_briefing(
 
     pack = await build_fact_pack(session, company_id=company_id, as_of=as_of)
     valid_ids = set(fact_pack_engine_call_ids(pack))
-
-    prov = provider or get_provider(
-        get_settings().anthropic_api_key and "anthropic" or "mock"
-    )
+    values_index = fact_pack_values_index(pack)
 
     user_prompt = (
         f"Company: {company.name} ({company.ticker})\n"
@@ -217,14 +273,25 @@ async def generate_briefing(
         f"FactPack:\n{json.dumps(pack, indent=2, default=_jsonable_default)}\n"
     )
 
-    response = await prov.complete(
+    response = await call_messages(
         system=BRIEFING_SYSTEM_PROMPT,
-        messages=[Message(role="user", content=user_prompt)],
+        user=user_prompt,
         max_tokens=1500,
-        temperature=0.2,
         model=model,
     )
-    parsed = _parse_briefing_response(response.text, valid_ids)
+    await record_call(
+        session,
+        surface="briefing_narrative",
+        transport="messages_api",
+        stats=LLMCallStats(
+            model=response.model,
+            prompt_tokens=response.prompt_tokens,
+            completion_tokens=response.completion_tokens,
+            cost_cents=response.cost_cents,
+        ),
+        ctx=LLMLogContext(company_id=company_id),
+    )
+    parsed = _parse_briefing_response(response.text, valid_ids, values_index)
 
     if parsed.has_uncited_numerics:
         logger.warning(
@@ -233,15 +300,6 @@ async def generate_briefing(
             as_of=as_of.isoformat(),
             count=len(parsed.uncited),
         )
-        retry = await prov.complete(
-            system=BRIEFING_SYSTEM_PROMPT_STRICT,
-            messages=[Message(role="user", content=user_prompt)],
-            max_tokens=1500,
-            temperature=0.0,
-            model=model,
-        )
-        parsed = _parse_briefing_response(retry.text, valid_ids)
-        response = retry
 
     existing = await session.scalar(
         select(BriefingCard).where(
@@ -256,7 +314,7 @@ async def generate_briefing(
         existing.citation_spans = [s.__dict__ for s in parsed.spans]
         existing.fact_pack_snapshot = pack
         existing.engine_call_ids = list(valid_ids)
-        existing.llm_provider = response.provider
+        existing.llm_provider = "anthropic"
         existing.llm_model = response.model
         existing.prompt_tokens = response.prompt_tokens
         existing.completion_tokens = response.completion_tokens
@@ -273,7 +331,7 @@ async def generate_briefing(
         citation_spans=[s.__dict__ for s in parsed.spans],
         fact_pack_snapshot=pack,
         engine_call_ids=list(valid_ids),
-        llm_provider=response.provider,
+        llm_provider="anthropic",
         llm_model=response.model,
         prompt_tokens=response.prompt_tokens,
         completion_tokens=response.completion_tokens,
@@ -292,21 +350,24 @@ async def generate_briefing(
 @dataclass(frozen=True)
 class ParsedBriefing:
     narrative: str
-    smart_chips: list[str]
+    smart_chips: list[dict[str, str]]  # [{"title": ..., "prompt": ...}]
     spans: list[Any]
     has_uncited_numerics: bool
     uncited: list[tuple[int, int, str]]
 
 
-def _parse_briefing_response(raw: str, valid_ids: set[str]) -> ParsedBriefing:
+def _parse_briefing_response(
+    raw: str,
+    valid_ids: set[str],
+    values_index: dict[str, set[str]] | None = None,
+) -> ParsedBriefing:
     payload = _extract_json(raw)
     narrative_raw = payload.get("narrative") or ""
-    chips = payload.get("smart_chips") or []
-    if not isinstance(chips, list):
-        chips = []
-    chips = [str(c) for c in chips][:5]
+    chips = _normalise_smart_chips(payload.get("smart_chips"))
 
     parsed = parse_citations(narrative_raw, valid_ids)
+    if values_index:
+        parsed = auto_ground(parsed, values_index, valid_ids)
     uncited = find_uncited_numerics(parsed.text, parsed.spans)
     return ParsedBriefing(
         narrative=parsed.text,
@@ -315,6 +376,65 @@ def _parse_briefing_response(raw: str, valid_ids: set[str]) -> ParsedBriefing:
         has_uncited_numerics=bool(uncited),
         uncited=uncited,
     )
+
+
+def _normalise_smart_chips(raw: Any) -> list[dict[str, str]]:
+    """Accept either the new {title, prompt} shape or a list of raw prompt strings.
+
+    Strings are upgraded into chips by deriving a <=4-word title from the
+    prompt itself; this keeps legacy briefing rows renderable while we
+    migrate to the explicit-title shape.
+    """
+    if not isinstance(raw, list):
+        return []
+    out: list[dict[str, str]] = []
+    for item in raw[:5]:
+        if isinstance(item, dict):
+            title = str(item.get("title", "")).strip()
+            prompt = str(item.get("prompt", "")).strip()
+            if not prompt and title:
+                prompt = title
+            if not title and prompt:
+                title = _derive_short_title(prompt)
+            if title and prompt:
+                out.append(
+                    {"title": _trim_words(title, 4), "prompt": prompt}
+                )
+        elif isinstance(item, str):
+            prompt = item.strip()
+            if prompt:
+                out.append(
+                    {"title": _derive_short_title(prompt), "prompt": prompt}
+                )
+    return out
+
+
+def _trim_words(text: str, max_words: int) -> str:
+    words = text.split()
+    if len(words) <= max_words:
+        return text
+    return " ".join(words[:max_words])
+
+
+_LEAD_INTERROGATIVES = (
+    "what is ", "what are ", "what's ", "what ",
+    "why ", "how ", "who ", "any ", "show me ",
+    "tell me ", "compare ", "list ", "find ",
+)
+
+
+def _derive_short_title(prompt: str) -> str:
+    body = prompt.strip().rstrip("?.!,;:")
+    lower = body.lower()
+    for lead in _LEAD_INTERROGATIVES:
+        if lower.startswith(lead):
+            body = body[len(lead) :]
+            break
+    body = body.strip()
+    if not body:
+        body = prompt.strip().rstrip("?.!,;:")
+    body = body[:1].upper() + body[1:]
+    return _trim_words(body, 4)
 
 
 def _extract_json(s: str) -> dict[str, Any]:

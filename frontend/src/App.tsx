@@ -1,12 +1,15 @@
 import { useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 
 import { authApi } from "./api/auth";
 import { ApiError } from "./api/client";
 import { LoginPage } from "./auth/LoginPage";
 import { SignupPage } from "./auth/SignupPage";
-import { AppShell } from "./layout/AppShell";
+import { AppShell, TakeoverLayout } from "./layout/AppShell";
+import { DriversDataView } from "./modules/drivers/DriversDataView";
 import { DriversModule } from "./modules/drivers/DriversModule";
+import { SettingsPage } from "./pages/SettingsPage";
 import { useAuth } from "./state/auth";
 
 export function App() {
@@ -16,6 +19,7 @@ export function App() {
   const setLoading = useAuth((s) => s.setLoading);
   const location = useLocation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     let cancelled = false;
@@ -39,6 +43,18 @@ export function App() {
   }, [setMe, setLoading]);
 
   useEffect(() => {
+    function onUnauthorized() {
+      // session expired mid-flight: drop cached data so we don't refetch on
+      // top of the redirect, clear identity, and bounce to /login.
+      queryClient.cancelQueries();
+      queryClient.clear();
+      setMe(null);
+    }
+    window.addEventListener("auth:unauthorized", onUnauthorized);
+    return () => window.removeEventListener("auth:unauthorized", onUnauthorized);
+  }, [queryClient, setMe]);
+
+  useEffect(() => {
     if (loading) return;
     const isAuthRoute = location.pathname === "/login" || location.pathname === "/signup";
     if (!me && !isAuthRoute) navigate("/login", { replace: true });
@@ -57,14 +73,25 @@ export function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
-      <Route
-        path="/"
-        element={
-          <AppShell>
-            <DriversModule />
-          </AppShell>
-        }
-      />
+      <Route element={<AppShell />}>
+        <Route index element={<DriversModule />} />
+        <Route
+          path="settings"
+          element={
+            <TakeoverLayout>
+              <SettingsPage />
+            </TakeoverLayout>
+          }
+        />
+        <Route
+          path="drivers/data/:source"
+          element={
+            <TakeoverLayout>
+              <DriversDataView />
+            </TakeoverLayout>
+          }
+        />
+      </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

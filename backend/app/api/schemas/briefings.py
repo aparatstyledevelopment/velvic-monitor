@@ -14,12 +14,23 @@ class CitationSpanOut(BaseModel):
     engine_call_id: str
 
 
+class SmartChip(BaseModel):
+    """One follow-up suggestion on the briefing card.
+
+    `title` is a <=4-word label rendered on the chip; `prompt` is the
+    longer question that gets prefilled into the composer on click.
+    """
+
+    title: str
+    prompt: str
+
+
 class BriefingOut(BaseModel):
     company_id: int
     module: str
     as_of_date: Date
     narrative: str
-    smart_chips: list[str]
+    smart_chips: list[SmartChip]
     citation_spans: list[CitationSpanOut]
     engine_call_ids: list[str]
     llm_provider: str
@@ -40,4 +51,4 @@ class EngineCallOut(BaseModel):
     status: str
     latency_ms: int
     engine_version: str
-    called_at: datetime
+    computed_at: datetime

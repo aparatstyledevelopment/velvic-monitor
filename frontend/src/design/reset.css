@@ -18,11 +18,20 @@ html {
   background-color: var(--surface-default);
   color: var(--text-primary);
   font-family: var(--font-sans);
-  font-size: 15px;
-  line-height: 1.45;
+  font-size: 14px;
+  line-height: 1.5;
   font-variant-numeric: tabular-nums;
+  /* Inter Variable's contextual alternates + tabular numerals look slightly
+     more editorial; "cv11" enables the single-storey 'a' alternate. */
+  font-feature-settings: "cv11" 1, "ss01" 1, "tnum" 1;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+}
+
+body {
+  background-color: var(--surface-default);
+  color: var(--text-primary);
 }
 
 button,
@@ -48,4 +57,54 @@ img,
 svg {
   display: block;
   max-width: 100%;
+}
+
+::selection {
+  background-color: var(--track-emphasized);
+  color: var(--text-primary);
+}
+
+/* Custom scrollbars.
+ *
+ * `.scrollbar-thin` — light, ~6px thumb. Used in the conversation pane and
+ *   the right-side artifact pane.
+ * `.scrollbar-none` — no thumb, no track, but content remains scrollable.
+ *   Used in the sidebar so the thread list scrolls without a visible bar.
+ */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface-muted) transparent;
+}
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: var(--surface-muted);
+  border-radius: 999px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background-color: var(--text-tertiary);
+}
+
+.scrollbar-none {
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }

@@ -19,7 +19,7 @@ from typing import Any
 from pydantic import BaseModel, ValidationError, create_model
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.chat.providers.base import ToolCall, ToolSpec
+from app.chat.types import ToolCall, ToolSpec
 from app.engine import registry as engine_registry
 from app.engine.envelope import EngineResult
 from app.engine.registry import EngineToolSpec

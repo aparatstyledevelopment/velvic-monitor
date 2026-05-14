@@ -1,0 +1,161 @@
+"""One-shot Anthropic Messages helper.
+
+The chat orchestrator drives the Claude Agent SDK (ADR 0009); single-shot
+LLM calls — the topic gate classifier and the briefing/news-summary
+composer — don't need the agent loop, so they talk to the Messages API
+through this thin httpx wrapper instead of paying the subprocess cost of
+the SDK.
+
+Pricing is kept here because both call sites need to record cost on
+their persisted rows.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+import httpx
+
+from app.core.config import get_settings
+from app.core.logging import logger
+
+DEFAULT_MODEL = "claude-opus-4-7"
+PRICING_CENTS_PER_MTOK: dict[str, dict[str, float]] = {
+    "claude-haiku-4-5-20251001": {"prompt": 100.0, "completion": 500.0},
+    "claude-sonnet-4-6": {"prompt": 300.0, "completion": 1500.0},
+    "claude-opus-4-7": {"prompt": 1500.0, "completion": 7500.0},
+}
+_BASE_URL = "https://api.anthropic.com/v1/messages"
+
+
+def resolve_model(explicit: str | None = None) -> str:
+    """Pick a model: explicit arg → ANTHROPIC_MODEL env → DEFAULT_MODEL."""
+    if explicit:
+        return explicit
+    return get_settings().anthropic_model or DEFAULT_MODEL
+
+
+@dataclass(frozen=True)
+class MessagesResponse:
+    text: str
+    prompt_tokens: int
+    completion_tokens: int
+    cost_cents: float
+    model: str
+
+
+def cost_cents(model: str, prompt_tokens: int, completion_tokens: int) -> float:
+    p = PRICING_CENTS_PER_MTOK.get(model, {"prompt": 100.0, "completion": 500.0})
+    return (prompt_tokens / 1_000_000) * p["prompt"] + (
+        completion_tokens / 1_000_000
+    ) * p["completion"]
+
+
+async def call_messages(
+    *,
+    system: str,
+    user: str,
+    max_tokens: int = 1024,
+    temperature: float | None = None,
+    model: str | None = None,
+    http_client: httpx.AsyncClient | None = None,
+) -> MessagesResponse:
+    """Single-turn POST /v1/messages with a system + user prompt.
+
+    `temperature` is omitted from the request body when None. Required
+    for Claude 4.7+ models which reject any explicit temperature/top_p
+    /top_k value (they're "deprecated" — the recommended migration is
+    to drop the field entirely and let the model decode at its
+    documented default).
+
+    Raises RuntimeError when ANTHROPIC_API_KEY is unset.
+    On 4xx/5xx from Anthropic, logs the response body before re-raising
+    so callers can see the actual API error (model unavailable, body
+    schema mismatch, rate-limit, etc.) instead of a bare HTTPStatusError.
+    """
+    api_key = get_settings().anthropic_api_key
+    if not api_key:
+        raise RuntimeError("ANTHROPIC_API_KEY not configured")
+
+    chosen_model = resolve_model(model)
+    body: dict[str, object] = {
+        "model": chosen_model,
+        "max_tokens": max_tokens,
+        "system": system,
+        "messages": [{"role": "user", "content": user}],
+    }
+    if temperature is not None:
+        body["temperature"] = temperature
+    headers = {
+        "x-api-key": api_key,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+    }
+
+    if http_client is not None:
+        data = await _post(http_client, body, headers, chosen_model)
+    else:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(60.0)) as client:
+            data = await _post(client, body, headers, chosen_model)
+
+    raw_content = data.get("content")
+    blocks: list[dict[str, object]] = raw_content if isinstance(raw_content, list) else []
+    text = _extract_text(blocks)
+    raw_usage = data.get("usage")
+    usage: dict[str, object] = raw_usage if isinstance(raw_usage, dict) else {}
+    prompt_tokens = _coerce_int(usage.get("input_tokens"))
+    completion_tokens = _coerce_int(usage.get("output_tokens"))
+    return MessagesResponse(
+        text=text,
+        prompt_tokens=prompt_tokens,
+        completion_tokens=completion_tokens,
+        cost_cents=cost_cents(chosen_model, prompt_tokens, completion_tokens),
+        model=chosen_model,
+    )
+
+
+async def _post(
+    client: httpx.AsyncClient,
+    body: dict[str, object],
+    headers: dict[str, str],
+    model: str,
+) -> dict[str, object]:
+    resp = await client.post(_BASE_URL, json=body, headers=headers)
+    if resp.status_code >= 400:
+        body_text = resp.text[:2000]
+        logger.warning(
+            "anthropic_api_error",
+            status=resp.status_code,
+            model=model,
+            response_body=body_text,
+        )
+        # Make the actual API error visible in the propagating exception too.
+        raise httpx.HTTPStatusError(
+            f"Anthropic {resp.status_code} for model={model}: {body_text}",
+            request=resp.request,
+            response=resp,
+        )
+    result: dict[str, object] = resp.json()
+    return result
+
+
+def _extract_text(blocks: list[dict[str, object]]) -> str:
+    out: list[str] = []
+    for block in blocks:
+        if not isinstance(block, dict):
+            continue
+        if block.get("type") == "text":
+            val = block.get("text", "")
+            if isinstance(val, str):
+                out.append(val)
+    return "".join(out)
+
+
+def _coerce_int(value: object) -> int:
+    if isinstance(value, bool):
+        return 0
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    return 0

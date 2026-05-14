@@ -1,4 +1,9 @@
-"""Demo seed: five Swedish blue-chips with peer relationships.
+"""Demo seed: a popular Swedish company + its real Stockholm-listed peers.
+
+Cohort: the four large Nordic banks. SEB is the headline; Swedbank,
+Handelsbanken, and Nordea are direct competitors with strong IR
+disclosure, aligned earnings cycles, and tight peer correlation —
+exactly the shape the Drivers module is meant to attribute.
 
 Run via `python -m app.admin.seed`. Idempotent.
 """
@@ -10,7 +15,7 @@ from dataclasses import dataclass
 
 from sqlalchemy import select
 
-from app.auth.models import Company, PeerRelationship
+from app.auth.models import Company, Org, OrgCompanyAccess, PeerRelationship
 from app.core.db import SessionLocal
 from app.ingestion.companies import upsert_company
 
@@ -30,59 +35,48 @@ class _Seed:
 
 SEED: list[_Seed] = [
     _Seed(
-        ticker="VOLV-B",
-        name="AB Volvo (B)",
-        yahoo_symbol="VOLV-B.ST",
+        ticker="SEB-A",
+        name="Skandinaviska Enskilda Banken (A)",
+        yahoo_symbol="SEB-A.ST",
         market="XSTO",
-        sector="Industrials",
-        industry="Heavy Trucks",
+        sector="Financials",
+        industry="Diversified Banks",
         market_cap_band="large",
-        isin="SE0000115446",
-        mfn_slug="volvo",
+        isin="SE0000148884",
+        mfn_slug="seb",
     ),
     _Seed(
-        ticker="ATCO-A",
-        name="Atlas Copco (A)",
-        yahoo_symbol="ATCO-A.ST",
+        ticker="SWED-A",
+        name="Swedbank (A)",
+        yahoo_symbol="SWED-A.ST",
         market="XSTO",
-        sector="Industrials",
-        industry="Industrial Machinery",
+        sector="Financials",
+        industry="Diversified Banks",
         market_cap_band="large",
-        isin="SE0011166610",
-        mfn_slug="atlas-copco",
+        isin="SE0000242455",
+        mfn_slug="swedbank",
     ),
     _Seed(
-        ticker="SAND",
-        name="Sandvik AB",
-        yahoo_symbol="SAND.ST",
+        ticker="SHB-A",
+        name="Svenska Handelsbanken (A)",
+        yahoo_symbol="SHB-A.ST",
         market="XSTO",
-        sector="Industrials",
-        industry="Industrial Machinery",
+        sector="Financials",
+        industry="Diversified Banks",
         market_cap_band="large",
-        isin="SE0000667891",
-        mfn_slug="sandvik",
+        isin="SE0007100599",
+        mfn_slug="handelsbanken",
     ),
     _Seed(
-        ticker="SKF-B",
-        name="AB SKF (B)",
-        yahoo_symbol="SKF-B.ST",
+        ticker="NDA-SE",
+        name="Nordea Bank Abp",
+        yahoo_symbol="NDA-SE.ST",
         market="XSTO",
-        sector="Industrials",
-        industry="Industrial Machinery",
+        sector="Financials",
+        industry="Diversified Banks",
         market_cap_band="large",
-        isin="SE0000108227",
-        mfn_slug="skf",
-    ),
-    _Seed(
-        ticker="ERIC-B",
-        name="Telefonaktiebolaget LM Ericsson (B)",
-        yahoo_symbol="ERIC-B.ST",
-        market="XSTO",
-        sector="Communication Services",
-        industry="Communications Equipment",
-        market_cap_band="large",
-        isin="SE0000108656",
-        mfn_slug="ericsson",
+        isin="FI4000297767",
+        mfn_slug="nordea",
     ),
 ]
 
@@ -102,7 +96,6 @@ BENCHMARK = _Seed(
 
 async def seed_demo_data() -> None:
     async with SessionLocal() as session:
-        # Upsert companies
         rows: dict[str, Company] = {}
         for s in [BENCHMARK, *SEED]:
             company = await upsert_company(
@@ -119,11 +112,13 @@ async def seed_demo_data() -> None:
             )
             rows[s.ticker] = company
 
-        # Industrials peer set: VOLV-B / ATCO-A / SAND / SKF-B (order by market cap intuition)
-        industrials = ["VOLV-B", "ATCO-A", "SAND", "SKF-B"]
-        for primary in industrials:
+        # Banks cohort — every seeded ticker is a direct competitor of
+        # every other. Rank is just order-of-listing; the Drivers module
+        # treats all four as a single peer group.
+        bank_tickers = [s.ticker for s in SEED]
+        for primary in bank_tickers:
             primary_id = rows[primary].id
-            others = [t for t in industrials if t != primary]
+            others = [t for t in bank_tickers if t != primary]
             for rank, peer_t in enumerate(others):
                 peer_id = rows[peer_t].id
                 exists = await session.scalar(
@@ -142,9 +137,40 @@ async def seed_demo_data() -> None:
                     )
                 )
 
+        # Grant every existing org access to every seeded company. The
+        # first ticker (SEB-A — the headline) is marked is_primary so it
+        # auto-loads in the sidebar. Idempotent: skip rows already present.
+        orgs = (await session.execute(select(Org))).scalars().all()
+        access_added = 0
+        for org in orgs:
+            for ticker in bank_tickers:
+                company_id = rows[ticker].id
+                exists = await session.scalar(
+                    select(OrgCompanyAccess).where(
+                        OrgCompanyAccess.org_id == org.id,
+                        OrgCompanyAccess.company_id == company_id,
+                    )
+                )
+                if exists is not None:
+                    continue
+                session.add(
+                    OrgCompanyAccess(
+                        org_id=org.id,
+                        company_id=company_id,
+                        is_primary=(ticker == bank_tickers[0]),
+                    )
+                )
+                access_added += 1
+
         await session.commit()
         print(
-            f"seeded {len(SEED)} demo tickers + {len(SEED) * (len(industrials) - 1)} peer rows (industrials cohort)"
+            f"seeded {len(SEED)} demo tickers "
+            f"+ {len(SEED) * (len(bank_tickers) - 1)} peer rows "
+            f"(Nordic banks cohort)"
+        )
+        print(
+            f"granted org_company_access: {access_added} rows "
+            f"across {len(orgs)} org(s)"
         )
 
 

@@ -5,7 +5,7 @@ description = "AI-native investor relations workspace — backend"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi==0.115.0",
-    "uvicorn[standard]==0.30.6",
+    "uvicorn[standard]>=0.32.0,<0.40",
     "pydantic==2.12.0",
     "pydantic-settings==2.14.0",
     "sqlalchemy[asyncio]==2.0.49",
@@ -27,6 +27,7 @@ dependencies = [
     # HTTPS calls don't get 403'd. Tier-1 isolation means we can swap to a
     # paid feed (Millistream / Refinitiv) later without touching the Engine.
     "yfinance==1.3.0",
+    "claude-agent-sdk>=0.1.81,<0.2",
 ]
 
 [project.optional-dependencies]
