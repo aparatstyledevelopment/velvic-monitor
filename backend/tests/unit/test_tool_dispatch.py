@@ -6,7 +6,7 @@ from typing import Any
 import pytest
 from pydantic import BaseModel
 
-from app.chat.providers.base import ToolCall
+from app.chat.types import ToolCall
 from app.chat.tools import (
     ToolArgumentError,
     UnknownToolError,

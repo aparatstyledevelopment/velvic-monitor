@@ -18,10 +18,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import Company
+from app.chat.anthropic_messages_client import call_messages
 from app.chat.citations import find_uncited_numerics, parse_citations
-from app.chat.providers.base import LLMProvider, Message
-from app.chat.providers.factory import get_provider
-from app.core.config import get_settings
 from app.core.logging import logger
 from app.engine.drivers.prompts import (
     BRIEFING_SYSTEM_PROMPT,
@@ -67,22 +65,14 @@ async def get_press_release_summary(
 
     summary = item.body_summary
     if summary is None and item.body_text:
-        provider = get_provider(
-            get_settings().anthropic_api_key and "anthropic" or "mock"
-        )
         try:
-            result = await provider.complete(
+            result = await call_messages(
                 system="You write tight one-line IR press-release summaries.",
-                messages=[
-                    Message(
-                        role="user",
-                        content=NEWS_SUMMARY_PROMPT.format(
-                            language=item.language or "Swedish/English",
-                            title=item.headline,
-                            body_text=item.body_text[:4000],
-                        ),
-                    )
-                ],
+                user=NEWS_SUMMARY_PROMPT.format(
+                    language=item.language or "Swedish/English",
+                    title=item.headline,
+                    body_text=item.body_text[:4000],
+                ),
                 max_tokens=80,
                 temperature=0.0,
             )
@@ -197,7 +187,6 @@ async def generate_briefing(
     *,
     company_id: int,
     as_of: date,
-    provider: LLMProvider | None = None,
     model: str | None = None,
 ) -> BriefingCard:
     company = await session.get(Company, company_id)
@@ -207,19 +196,15 @@ async def generate_briefing(
     pack = await build_fact_pack(session, company_id=company_id, as_of=as_of)
     valid_ids = set(fact_pack_engine_call_ids(pack))
 
-    prov = provider or get_provider(
-        get_settings().anthropic_api_key and "anthropic" or "mock"
-    )
-
     user_prompt = (
         f"Company: {company.name} ({company.ticker})\n"
         f"As-of: {as_of.isoformat()}\n\n"
         f"FactPack:\n{json.dumps(pack, indent=2, default=_jsonable_default)}\n"
     )
 
-    response = await prov.complete(
+    response = await call_messages(
         system=BRIEFING_SYSTEM_PROMPT,
-        messages=[Message(role="user", content=user_prompt)],
+        user=user_prompt,
         max_tokens=1500,
         temperature=0.2,
         model=model,
@@ -233,9 +218,9 @@ async def generate_briefing(
             as_of=as_of.isoformat(),
             count=len(parsed.uncited),
         )
-        retry = await prov.complete(
+        retry = await call_messages(
             system=BRIEFING_SYSTEM_PROMPT_STRICT,
-            messages=[Message(role="user", content=user_prompt)],
+            user=user_prompt,
             max_tokens=1500,
             temperature=0.0,
             model=model,
@@ -256,7 +241,7 @@ async def generate_briefing(
         existing.citation_spans = [s.__dict__ for s in parsed.spans]
         existing.fact_pack_snapshot = pack
         existing.engine_call_ids = list(valid_ids)
-        existing.llm_provider = response.provider
+        existing.llm_provider = "anthropic"
         existing.llm_model = response.model
         existing.prompt_tokens = response.prompt_tokens
         existing.completion_tokens = response.completion_tokens
@@ -273,7 +258,7 @@ async def generate_briefing(
         citation_spans=[s.__dict__ for s in parsed.spans],
         fact_pack_snapshot=pack,
         engine_call_ids=list(valid_ids),
-        llm_provider=response.provider,
+        llm_provider="anthropic",
         llm_model=response.model,
         prompt_tokens=response.prompt_tokens,
         completion_tokens=response.completion_tokens,

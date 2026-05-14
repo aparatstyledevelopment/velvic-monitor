@@ -16,7 +16,7 @@ from typing import Any
 
 from fastapi.responses import StreamingResponse
 
-from app.chat.providers.base import CompletionEvent
+from app.chat.types import CompletionEvent
 
 SSE_HEADERS = {
     "Cache-Control": "no-cache",

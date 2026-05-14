@@ -1,31 +1,37 @@
 """Orchestrator unit tests.
 
 These exercise the orchestrator state machine with a faked AsyncSession and
-a scripted MockProvider. The fake session implements only the methods the
-orchestrator (and the @engine_tool decorator's ledger ops) actually call.
-End-to-end tests that hit a real Postgres live in tests/integration/.
+a `FakeSDKClient` that scripts a sequence of Claude Agent SDK messages.
+PostToolUse hook invocations are simulated so `engine_call_id`s land on
+the turn state the way they would in production. End-to-end tests that
+hit a real Postgres + Claude CLI live in tests/integration/.
 """
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Iterable
+import json
+from collections.abc import AsyncGenerator, AsyncIterator
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID, uuid4
 
 import pytest
+from claude_agent_sdk import (
+    AssistantMessage,
+    ClaudeAgentOptions,
+    ResultMessage,
+    TextBlock,
+    ToolResultBlock,
+    ToolUseBlock,
+    UserMessage,
+)
 from pydantic import BaseModel
 
 from app.chat.models import ChatEngineCall, ChatThread, ChatTurn
 from app.chat.orchestrator import ChatOrchestrator
-from app.chat.providers.base import (
-    CompletionEvent,
-    CompletionResult,
-    LLMProvider,
-    Message,
-    ToolSpec,
-)
-from app.chat.providers.mock import MockProvider, make_tool_call_result
+from app.chat.topic_gate import TopicDecision
+from app.chat.types import CompletionEvent
 from app.engine.envelope import EngineResult, SourceRef
 from app.engine.models import EngineCall
 from app.engine.registry import _REGISTRY, engine_tool
@@ -67,15 +73,11 @@ def echo_tool() -> Any:
 
 @pytest.fixture
 def fixtures() -> dict[str, Any]:
-    org_id = uuid4()
-    user_id = uuid4()
-    thread_id = uuid4()
-    company_id = 42
     return {
-        "org_id": org_id,
-        "user_id": user_id,
-        "thread_id": thread_id,
-        "company_id": company_id,
+        "org_id": uuid4(),
+        "user_id": uuid4(),
+        "thread_id": uuid4(),
+        "company_id": 42,
     }
 
 
@@ -103,13 +105,6 @@ class _FakeAccess:
 
 
 class _FakeSession:
-    """Just enough AsyncSession surface for the orchestrator + ledger.
-
-    Pre-seeds get() lookups by class. scalar/execute respond from a scripted
-    queue keyed on call order, since SQLAlchemy stmts don't have stable
-    string keys we could route on.
-    """
-
     def __init__(
         self,
         *,
@@ -137,7 +132,6 @@ class _FakeSession:
         return _FakeExecuteResult(rows)
 
     def add(self, obj: Any) -> None:
-        # Mimic Postgres-side default: assign an id on flush if missing.
         self.added.append(obj)
 
     async def flush(self) -> None:
@@ -180,15 +174,15 @@ def _build_session(fixtures: dict[str, Any]) -> _FakeSession:
     return _FakeSession(
         seeded_get={
             ChatThread: {fixtures["thread_id"]: thread},
-            _FakeCompany: {},  # unused
-            EngineCall: {},  # unused — fake tool returns no cache hit
+            _FakeCompany: {},
+            EngineCall: {},
         },
         scalar_results=[
             _FakeAccess(),  # OrgCompanyAccess lookup
             0,  # next_idx for user turn
             0,  # next_idx for assistant turn
         ],
-        execute_results=[[]],  # empty history
+        execute_results=[[]],
     )
 
 
@@ -198,21 +192,206 @@ def _patch_session_lookups(
     company: _FakeCompany,
     org: _FakeOrg,
 ) -> None:
-    from app.auth.models import Company, Org  # noqa: PLC0415  (delayed import)
+    from app.auth.models import Company, Org  # noqa: PLC0415
 
     session._get[Company] = {company.id: company}
     session._get[Org] = {org.id: org}
 
 
-def _orchestrator_with_provider(provider: LLMProvider) -> ChatOrchestrator:
+# -------------------------------------------------------------------- FakeSDKClient
+
+
+@dataclass
+class _ScriptedToolCall:
+    """One scripted assistant message that wants to call a tool."""
+
+    tool_use_id: str
+    tool_name: str  # bare name; orchestrator strips the mcp__engine__ prefix
+    arguments: dict[str, Any] = field(default_factory=dict)
+    text: str = ""
+    envelope: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class _ScriptedFinal:
+    """A final assistant message + result usage."""
+
+    text: str
+    model: str = "claude-haiku-4-5-20251001"
+    prompt_tokens: int = 10
+    completion_tokens: int = 5
+
+
+class _FakeSDKClient:
+    """Stand-in for `claude_agent_sdk.ClaudeSDKClient`.
+
+    The script is a list of `_ScriptedToolCall | _ScriptedFinal`. For each
+    tool call, the fake invokes the PostToolUse hook with the configured
+    envelope so the orchestrator's hook captures the engine_call_id; then
+    it yields the AssistantMessage(ToolUseBlock) and a UserMessage with
+    a ToolResultBlock. The final entry yields AssistantMessage(TextBlock)
+    + ResultMessage.
+    """
+
+    def __init__(
+        self,
+        options: ClaudeAgentOptions,
+        script: list[_ScriptedToolCall | _ScriptedFinal],
+    ) -> None:
+        self.options = options
+        self._script = list(script)
+        self.queries: list[str] = []
+
+    async def __aenter__(self) -> "_FakeSDKClient":
+        return self
+
+    async def __aexit__(self, *_a: Any) -> bool:
+        return False
+
+    async def query(self, prompt: str, session_id: str = "default") -> None:
+        _ = session_id
+        self.queries.append(prompt)
+
+    async def receive_response(self) -> AsyncIterator[Any]:
+        for step in self._script:
+            if isinstance(step, _ScriptedToolCall):
+                await self._fire_post_tool_use_hook(step)
+                yield AssistantMessage(
+                    content=[
+                        ToolUseBlock(
+                            id=step.tool_use_id,
+                            name=f"mcp__engine__{step.tool_name}",
+                            input=step.arguments,
+                        )
+                    ],
+                    model="claude-haiku-4-5-20251001",
+                    parent_tool_use_id=None,
+                    error=None,
+                    usage=None,
+                    message_id=None,
+                    stop_reason=None,
+                    session_id=None,
+                    uuid=None,
+                )
+                yield UserMessage(
+                    content=[
+                        ToolResultBlock(
+                            tool_use_id=step.tool_use_id,
+                            content=json.dumps(step.envelope),
+                            is_error=None,
+                        )
+                    ],
+                    uuid=None,
+                    parent_tool_use_id=None,
+                    tool_use_result=None,
+                )
+            else:
+                yield AssistantMessage(
+                    content=[TextBlock(text=step.text)],
+                    model=step.model,
+                    parent_tool_use_id=None,
+                    error=None,
+                    usage=None,
+                    message_id=None,
+                    stop_reason="end_turn",
+                    session_id=None,
+                    uuid=None,
+                )
+                yield ResultMessage(
+                    subtype="success",
+                    duration_ms=10,
+                    duration_api_ms=8,
+                    is_error=False,
+                    num_turns=1,
+                    session_id="test",
+                    stop_reason="end_turn",
+                    total_cost_usd=0.001,
+                    usage={
+                        "input_tokens": step.prompt_tokens,
+                        "output_tokens": step.completion_tokens,
+                    },
+                    result=step.text,
+                    structured_output=None,
+                    model_usage=None,
+                    permission_denials=None,
+                    deferred_tool_use=None,
+                    errors=None,
+                    api_error_status=None,
+                    uuid=None,
+                )
+
+    async def _fire_post_tool_use_hook(self, step: _ScriptedToolCall) -> None:
+        hooks = self.options.hooks or {}
+        matchers = hooks.get("PostToolUse", [])
+        for matcher in matchers:
+            for cb in matcher.hooks:
+                await cb(
+                    {
+                        "session_id": "test",
+                        "transcript_path": "/tmp/x",
+                        "cwd": "/tmp",
+                        "agent_id": "test",
+                        "agent_type": "test",
+                        "hook_event_name": "PostToolUse",
+                        "tool_name": f"mcp__engine__{step.tool_name}",
+                        "tool_input": step.arguments,
+                        "tool_response": {
+                            "content": [
+                                {"type": "text", "text": json.dumps(step.envelope)}
+                            ]
+                        },
+                        "tool_use_id": step.tool_use_id,
+                    },
+                    step.tool_use_id,
+                    {"signal": None},
+                )
+
+
+def _orchestrator_with_client(
+    script: list[_ScriptedToolCall | _ScriptedFinal],
+    *,
+    on_topic: bool = True,
+    reason: str = "",
+) -> ChatOrchestrator:
+    async def fake_classify(_message: str, model: str | None = None) -> TopicDecision:
+        _ = model
+        return TopicDecision(on_topic=on_topic, reason=reason)
+
+    scripts: list[list[_ScriptedToolCall | _ScriptedFinal]] = [list(script)]
+
+    def client_factory(options: ClaudeAgentOptions) -> _FakeSDKClient:
+        next_script = scripts.pop(0) if scripts else []
+        return _FakeSDKClient(options, next_script)
+
     return ChatOrchestrator(
-        provider_factory=lambda _org: provider,
-        gate_provider_factory=lambda _org: MockProvider(text='{"on_topic": true}'),
+        client_factory=client_factory,  # type: ignore[arg-type]
+        gate_classify_fn=fake_classify,
         tool_modules=("_test",),
     )
 
 
-async def _collect(it: AsyncIterator[CompletionEvent]) -> list[CompletionEvent]:
+def _orchestrator_with_two_scripts(
+    first: list[_ScriptedToolCall | _ScriptedFinal],
+    second: list[_ScriptedToolCall | _ScriptedFinal],
+) -> ChatOrchestrator:
+    async def fake_classify(_message: str, model: str | None = None) -> TopicDecision:
+        _ = model
+        return TopicDecision(on_topic=True, reason="")
+
+    scripts: list[list[_ScriptedToolCall | _ScriptedFinal]] = [list(first), list(second)]
+
+    def client_factory(options: ClaudeAgentOptions) -> _FakeSDKClient:
+        next_script = scripts.pop(0) if scripts else []
+        return _FakeSDKClient(options, next_script)
+
+    return ChatOrchestrator(
+        client_factory=client_factory,  # type: ignore[arg-type]
+        gate_classify_fn=fake_classify,
+        tool_modules=("_test",),
+    )
+
+
+async def _collect(it: AsyncGenerator[CompletionEvent, None]) -> list[CompletionEvent]:
     out: list[CompletionEvent] = []
     async for ev in it:
         out.append(ev)
@@ -223,7 +402,7 @@ async def _collect(it: AsyncIterator[CompletionEvent]) -> list[CompletionEvent]:
 
 
 @pytest.mark.asyncio
-async def test_off_topic_emits_refusal_without_calling_main_provider(
+async def test_off_topic_emits_refusal_without_calling_sdk(
     fixtures: dict[str, Any],
 ) -> None:
     session = _build_session(fixtures)
@@ -232,24 +411,19 @@ async def test_off_topic_emits_refusal_without_calling_main_provider(
     _patch_session_lookups(session, company=company, org=org)
     user = _FakeUser(fixtures["user_id"], fixtures["org_id"])
 
-    main_calls: list[int] = []
+    sdk_calls: list[int] = []
 
-    class _SpyProvider:
-        name = "spy"
+    def client_factory(_options: ClaudeAgentOptions) -> _FakeSDKClient:
+        sdk_calls.append(1)
+        raise AssertionError("SDK client should not be constructed on off-topic")
 
-        async def complete(self, **_kw: Any) -> CompletionResult:
-            main_calls.append(1)
-            raise AssertionError("main provider should not be called on off-topic")
-
-        async def stream_complete(self, **_kw: Any) -> AsyncIterator[CompletionEvent]:
-            raise AssertionError("main provider should not be called on off-topic")
-            yield  # pragma: no cover
+    async def fake_classify(_msg: str, model: str | None = None) -> TopicDecision:
+        _ = model
+        return TopicDecision(on_topic=False, reason="not a Swedish-listed name")
 
     orch = ChatOrchestrator(
-        provider_factory=lambda _o: _SpyProvider(),  # type: ignore[arg-type, return-value]
-        gate_provider_factory=lambda _o: MockProvider(
-            text='{"on_topic": false, "reason": "not a Swedish-listed name"}'
-        ),
+        client_factory=client_factory,  # type: ignore[arg-type]
+        gate_classify_fn=fake_classify,
         tool_modules=("_test",),
     )
 
@@ -261,13 +435,12 @@ async def test_off_topic_emits_refusal_without_calling_main_provider(
     )
     events = await _collect(it)
 
-    assert main_calls == []
+    assert sdk_calls == []
     types = [e.type for e in events]
     assert types[0] == "text_delta"
     assert "Volvo Group" in events[0].payload["text"]
     assert types[-1] == "done"
     assert events[-1].payload["finish_reason"] == "refusal"
-    # User turn + assistant refusal turn persisted.
     assert sum(1 for o in session.added if isinstance(o, ChatTurn)) == 2
 
 
@@ -282,38 +455,17 @@ async def test_tool_loop_dispatches_then_emits_final_with_citations(
     _patch_session_lookups(session, company=company, org=org)
     user = _FakeUser(fixtures["user_id"], fixtures["org_id"])
 
-    # Provider script: round 1 → tool_use, round 2 → final text with citation.
-    script = [
-        make_tool_call_result(
+    ec_id = "ec_abc123"
+    script: list[_ScriptedToolCall | _ScriptedFinal] = [
+        _ScriptedToolCall(
+            tool_use_id="tu_1",
             tool_name="_orch_echo",
             arguments={"value": "hi"},
-            tool_call_id="tu_1",
-            text="checking...",
+            envelope={"engine_call_id": ec_id, "data": {"value": "hi"}, "sources": []},
         ),
+        _ScriptedFinal(text=f"The answer is 42 [{ec_id}]."),
     ]
-
-    captured_engine_call_id: dict[str, str] = {}
-
-    def final_responder(
-        system: str, messages: list[Message], _tools: list[ToolSpec] | None
-    ) -> str | CompletionResult:
-        # Pull engine_call_id from the most-recent tool message.
-        for m in reversed(messages):
-            if m.role == "tool":
-                import json as _json
-
-                env = _json.loads(m.content)
-                captured_engine_call_id["id"] = env["engine_call_id"]
-                ec = env["engine_call_id"]
-                return f"The answer is 42 [{ec}]."
-        return "no tool result found"
-
-    provider = MockProvider(
-        responder=lambda s, msgs, tools: (
-            script.pop(0) if script else final_responder(s, msgs, tools)
-        )
-    )
-    orch = _orchestrator_with_provider(provider)
+    orch = _orchestrator_with_client(script)
 
     it = await orch.process_turn(
         thread_id=fixtures["thread_id"],
@@ -326,19 +478,16 @@ async def test_tool_loop_dispatches_then_emits_final_with_citations(
     types = [e.type for e in events]
     assert "tool_call" in types
     assert "tool_result" in types
-    final_text_events = [e for e in events if e.type == "text_delta"]
-    final_text = final_text_events[-1].payload["text"]
+    text_events = [e for e in events if e.type == "text_delta"]
+    final_text = text_events[-1].payload["text"]
     assert "42" in final_text
-    assert captured_engine_call_id["id"] in final_text or final_text.startswith(
-        "The answer is 42"
-    )
+    assert ec_id in final_text or final_text.startswith("The answer is 42")
 
     done = events[-1]
     assert done.type == "done"
-    assert done.payload["engine_call_ids"]
-    assert done.payload["finish_reason"] in ("stop", "tool_use")
+    assert ec_id in done.payload["engine_call_ids"]
+    assert done.payload["finish_reason"] == "stop"
 
-    # Persistence: user turn + assistant turn + 1 engine-call link
     chat_turns = [o for o in session.added if isinstance(o, ChatTurn)]
     chat_links = [o for o in session.added if isinstance(o, ChatEngineCall)]
     assert len(chat_turns) == 2
@@ -347,7 +496,7 @@ async def test_tool_loop_dispatches_then_emits_final_with_citations(
 
 @pytest.mark.asyncio
 async def test_uncited_numeric_triggers_strict_retry_and_warning(
-    fixtures: dict[str, Any]
+    fixtures: dict[str, Any],
 ) -> None:
     session = _build_session(fixtures)
     company = _FakeCompany(fixtures["company_id"], "Volvo Group")
@@ -355,32 +504,13 @@ async def test_uncited_numeric_triggers_strict_retry_and_warning(
     _patch_session_lookups(session, company=company, org=org)
     user = _FakeUser(fixtures["user_id"], fixtures["org_id"])
 
-    # Round 1 returns text with a numeric and NO citation. Round 2 (strict)
-    # also fails to cite — we expect a `warning` event to be emitted.
-    script = [
-        CompletionResult(
-            text="The stock fell 2.1 percent yesterday.",
-            tool_calls=[],
-            prompt_tokens=10,
-            completion_tokens=8,
-            cost_cents=0.001,
-            model="mock-1",
-            provider="mock",
-            finish_reason="stop",
-        ),
-        CompletionResult(
-            text="The stock fell 2.1 percent yesterday.",
-            tool_calls=[],
-            prompt_tokens=10,
-            completion_tokens=8,
-            cost_cents=0.001,
-            model="mock-1",
-            provider="mock",
-            finish_reason="stop",
-        ),
+    bad: list[_ScriptedToolCall | _ScriptedFinal] = [
+        _ScriptedFinal(text="The stock fell 2.1 percent yesterday."),
     ]
-    provider = MockProvider(script=script)
-    orch = _orchestrator_with_provider(provider)
+    retry_bad: list[_ScriptedToolCall | _ScriptedFinal] = [
+        _ScriptedFinal(text="The stock fell 2.1 percent yesterday."),
+    ]
+    orch = _orchestrator_with_two_scripts(bad, retry_bad)
 
     it = await orch.process_turn(
         thread_id=fixtures["thread_id"],
@@ -390,71 +520,35 @@ async def test_uncited_numeric_triggers_strict_retry_and_warning(
     )
     events = await _collect(it)
 
-    warning_events = [e for e in events if e.type == "warning"]
-    assert len(warning_events) == 1
-    assert warning_events[0].payload["code"] == "uncited_numeric"
+    warnings = [e for e in events if e.type == "warning"]
+    assert len(warnings) == 1
+    assert warnings[0].payload["code"] == "uncited_numeric"
     assert events[-1].type == "done"
 
 
-@pytest.mark.asyncio
-async def test_tool_call_cap_forces_final_answer(
-    fixtures: dict[str, Any], echo_tool: Any
-) -> None:
-    _ = echo_tool
-    session = _build_session(fixtures)
-    company = _FakeCompany(fixtures["company_id"], "Volvo Group")
-    org = _FakeOrg(fixtures["org_id"])
-    _patch_session_lookups(session, company=company, org=org)
-    user = _FakeUser(fixtures["user_id"], fixtures["org_id"])
+def test_options_carry_max_turns_cap() -> None:
+    """The orchestrator must thread MAX_TOOL_CALLS through ClaudeAgentOptions.max_turns."""
+    import app.engine  # noqa: F401  registers the drivers tools
 
-    # Build 8 tool-call rounds + a final text round.
-    script: list[CompletionResult] = [
-        make_tool_call_result(
-            tool_name="_orch_echo",
-            arguments={"value": f"v{i}"},
-            tool_call_id=f"tu_{i}",
-        )
-        for i in range(8)
-    ]
-    script.append(
-        CompletionResult(
-            text="ok done.",
-            tool_calls=[],
-            prompt_tokens=1,
-            completion_tokens=1,
-            cost_cents=0.0,
-            model="mock-1",
-            provider="mock",
-            finish_reason="stop",
-        )
+    from app.chat.orchestrator import MAX_TOOL_CALLS, _TurnState, _build_options
+    from app.chat.sdk_hooks import TurnHookState
+
+    state = _TurnState(hooks=TurnHookState())
+    options = _build_options(
+        session=None,  # type: ignore[arg-type]
+        modules=["drivers"],
+        system_prompt="x",
+        state=state,
     )
-    captured_tools_arg: list[Iterable[ToolSpec] | None] = []
+    assert options.max_turns == MAX_TOOL_CALLS
+    assert options.allowed_tools  # drivers module has tools registered
+    assert all(n.startswith("mcp__engine__") for n in options.allowed_tools)
 
-    def responder(
-        system: str, messages: list[Message], tools: list[ToolSpec] | None
-    ) -> CompletionResult:
-        captured_tools_arg.append(tools)
-        return script.pop(0)
-
-    provider = MockProvider(responder=responder)
-    orch = _orchestrator_with_provider(provider)
-
-    it = await orch.process_turn(
-        thread_id=fixtures["thread_id"],
-        user_message="run a lot of tools",
-        session=session,  # type: ignore[arg-type]
-        user=user,  # type: ignore[arg-type]
+    options_strict = _build_options(
+        session=None,  # type: ignore[arg-type]
+        modules=["drivers"],
+        system_prompt="x",
+        state=state,
+        disable_tools=True,
     )
-    events = await _collect(it)
-
-    # 8 tool dispatches + final text.
-    tool_call_events = [e for e in events if e.type == "tool_call"]
-    assert len(tool_call_events) == 8
-
-    # Last call to provider should have tools=None (cap reached).
-    assert captured_tools_arg[-1] is None
-    # Earlier calls had tools.
-    assert captured_tools_arg[0] is not None
-
-    assert events[-1].type == "done"
-    assert events[-1].payload["finish_reason"] in ("stop", "tool_use")
+    assert options_strict.allowed_tools == []

@@ -7,10 +7,6 @@ reason (orchestrator emits the canonical refusal).
 Output contract is JSON:
   {"on_topic": true}
   {"on_topic": false, "reason": "<short reason>"}
-
-The classifier is provider-agnostic: takes any LLMProvider. In production
-the orchestrator wires this to the cheapest model available on the org's
-preferred provider (e.g. Anthropic Haiku).
 """
 
 from __future__ import annotations
@@ -19,8 +15,8 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
+from app.chat.anthropic_messages_client import call_messages
 from app.chat.prompts import REFUSAL_TEMPLATE, TOPIC_GATE_SYSTEM
-from app.chat.providers.base import LLMProvider, Message
 from app.core.logging import logger
 
 
@@ -33,20 +29,19 @@ class TopicDecision:
 CLASSIFIER_MAX_TOKENS = 96
 
 
-async def classify(
-    provider: LLMProvider,
-    message: str,
-    *,
-    model: str | None = None,
-) -> TopicDecision:
+async def classify(message: str, *, model: str | None = None) -> TopicDecision:
     """Return ON_TOPIC / OFF_TOPIC decision for `message`."""
-    response = await provider.complete(
-        system=TOPIC_GATE_SYSTEM,
-        messages=[Message(role="user", content=message)],
-        max_tokens=CLASSIFIER_MAX_TOKENS,
-        temperature=0.0,
-        model=model,
-    )
+    try:
+        response = await call_messages(
+            system=TOPIC_GATE_SYSTEM,
+            user=message,
+            max_tokens=CLASSIFIER_MAX_TOKENS,
+            temperature=0.0,
+            model=model,
+        )
+    except RuntimeError as e:
+        logger.warning("topic_gate_unavailable", error=str(e))
+        return TopicDecision(on_topic=True, reason="")
     return _parse_decision(response.text)
 
 
