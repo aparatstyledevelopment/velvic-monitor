@@ -445,6 +445,55 @@ async def test_off_topic_emits_refusal_without_calling_sdk(
 
 
 @pytest.mark.asyncio
+async def test_bypass_topic_gate_skips_classifier_and_runs_main_provider(
+    fixtures: dict[str, Any],
+) -> None:
+    """Demo escape hatch: bypass_topic_gate=True must skip the classifier
+    entirely (no gate provider call) and let the model answer even
+    obviously-off-topic prompts."""
+    session = _build_session(fixtures)
+    company = _FakeCompany(fixtures["company_id"], "Volvo Group")
+    org = _FakeOrg(fixtures["org_id"])
+    _patch_session_lookups(session, company=company, org=org)
+    user = _FakeUser(fixtures["user_id"], fixtures["org_id"])
+
+    gate_calls: list[int] = []
+
+    async def boom_classify(_msg: str, model: str | None = None) -> TopicDecision:
+        _ = model
+        gate_calls.append(1)
+        raise AssertionError("gate classifier must not be called when bypass=True")
+
+    script: list[_ScriptedToolCall | _ScriptedFinal] = [
+        _ScriptedFinal(text="Hello, here's a generic answer."),
+    ]
+    scripts: list[list[_ScriptedToolCall | _ScriptedFinal]] = [script]
+
+    def client_factory(options: ClaudeAgentOptions) -> _FakeSDKClient:
+        return _FakeSDKClient(options, scripts.pop(0) if scripts else [])
+
+    orch = ChatOrchestrator(
+        client_factory=client_factory,  # type: ignore[arg-type]
+        gate_classify_fn=boom_classify,
+        tool_modules=("_test",),
+    )
+
+    it = await orch.process_turn(
+        thread_id=fixtures["thread_id"],
+        user_message="recommend Tesla stock",
+        session=session,  # type: ignore[arg-type]
+        user=user,  # type: ignore[arg-type]
+        bypass_topic_gate=True,
+    )
+    events = await _collect(it)
+
+    assert gate_calls == []
+    types = [e.type for e in events]
+    assert types[-1] == "done"
+    assert events[-1].payload["finish_reason"] != "refusal"
+
+
+@pytest.mark.asyncio
 async def test_tool_loop_dispatches_then_emits_final_with_citations(
     fixtures: dict[str, Any], echo_tool: Any
 ) -> None:

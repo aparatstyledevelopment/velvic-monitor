@@ -35,6 +35,7 @@ class TurnHookState:
     """Mutable bag the hooks write into and the orchestrator reads after."""
 
     engine_call_ids: list[str] = field(default_factory=list)
+    tool_names: list[str] = field(default_factory=list)
     tool_errors: list[str] = field(default_factory=list)
 
 
@@ -55,9 +56,11 @@ def make_post_tool_use_hook(state: TurnHookState) -> HookCallback:
         except json.JSONDecodeError:
             logger.warning("post_tool_use_envelope_unparseable")
             return {}
+        bare_name = _strip_engine_prefix(data["tool_name"])
         ec_id = envelope.get("engine_call_id")
         if isinstance(ec_id, str) and ec_id.startswith("ec_"):
             state.engine_call_ids.append(ec_id)
+            state.tool_names.append(bare_name)
         elif "error" in envelope:
             state.tool_errors.append(str(envelope["error"]))
         return {}
@@ -72,6 +75,11 @@ def _as_dict(input_data: HookInput) -> dict[str, Any]:
 def _is_engine_tool(data: dict[str, Any]) -> bool:
     name = data.get("tool_name")
     return isinstance(name, str) and name.startswith(f"mcp__{MCP_SERVER_NAME}__")
+
+
+def _strip_engine_prefix(name: str) -> str:
+    prefix = f"mcp__{MCP_SERVER_NAME}__"
+    return name[len(prefix) :] if name.startswith(prefix) else name
 
 
 def _extract_envelope_text(input_data: dict[str, Any]) -> str | None:

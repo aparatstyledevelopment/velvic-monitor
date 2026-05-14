@@ -44,6 +44,7 @@ from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.models import AppUser, Company, Org, OrgCompanyAccess
+from app.chat import followups as followups_mod
 from app.chat import topic_gate as topic_gate_mod
 from app.chat.anthropic_messages_client import (
     DEFAULT_MODEL,
@@ -105,8 +106,17 @@ class ChatOrchestrator:
         user_message: str,
         session: AsyncSession,
         user: AppUser,
+        bypass_topic_gate: bool = False,
     ) -> AsyncGenerator[CompletionEvent, None]:
-        return _drive_turn(self, thread_id, user_message, session, user)
+        """Drive a turn and return an async iterator of CompletionEvents.
+
+        `bypass_topic_gate` is a demo-only escape hatch surfaced through the
+        Settings page; when true the topic-gate refusal path is skipped and
+        every prompt reaches the model.
+        """
+        return _drive_turn(
+            self, thread_id, user_message, session, user, bypass_topic_gate
+        )
 
 
 # ---------------------------------------------------------------------- driver
@@ -118,6 +128,7 @@ async def _drive_turn(
     user_message: str,
     session: AsyncSession,
     user: AppUser,
+    bypass_topic_gate: bool = False,
 ) -> AsyncGenerator[CompletionEvent, None]:
     thread = await _load_thread(session, thread_id, user)
     company = await session.get(Company, thread.company_id)
@@ -137,16 +148,23 @@ async def _drive_turn(
     session.add(user_turn)
     await session.flush()
 
-    decision = await orch._gate_classify_fn(user_message)
-    if not decision.on_topic:
-        refusal = topic_gate_mod.render_refusal(
-            company_name=company.name, reason=decision.reason
+    if bypass_topic_gate:
+        logger.info(
+            "chat_topic_gate_bypassed",
+            thread_id=str(thread_id),
+            user_id=str(user.id),
         )
-        async for ev in _persist_and_emit_refusal(
-            session=session, thread=thread, refusal=refusal
-        ):
-            yield ev
-        return
+    else:
+        decision = await orch._gate_classify_fn(user_message)
+        if not decision.on_topic:
+            refusal = topic_gate_mod.render_refusal(
+                company_name=company.name, reason=decision.reason
+            )
+            async for ev in _persist_and_emit_refusal(
+                session=session, thread=thread, refusal=refusal
+            ):
+                yield ev
+            return
 
     tool_modules = list(orch._tool_modules)
     history = await _build_history(session, thread_id, exclude_turn_id=user_turn.id)
@@ -235,6 +253,10 @@ async def _drive_turn(
             },
         )
 
+    suggestions = followups_mod.generate(
+        final_text=final_text, tool_names=state.hooks.tool_names
+    )
+
     assistant_idx = await _next_idx(session, thread_id)
     assistant_turn = ChatTurn(
         thread_id=thread_id,
@@ -256,6 +278,7 @@ async def _drive_turn(
         cost_cents=Decimal(str(round(state.cost_cents_total, 4))),
         finish_reason=state.finish_reason,
         warning=warning_code,
+        suggested_followups=suggestions,
     )
     session.add(assistant_turn)
     await session.flush()
@@ -276,6 +299,7 @@ async def _drive_turn(
             "model": state.model or DEFAULT_MODEL,
             "provider": "anthropic",
             "engine_call_ids": list(dict.fromkeys(state.hooks.engine_call_ids)),
+            "suggested_followups": suggestions,
         },
     )
 
@@ -440,6 +464,7 @@ async def _persist_and_emit_refusal(
             "model": "",
             "provider": "",
             "engine_call_ids": [],
+            "suggested_followups": [],
         },
     )
 

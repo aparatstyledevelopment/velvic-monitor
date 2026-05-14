@@ -1,3 +1,5 @@
+@import "@fontsource-variable/inter";
+
 @import "./design/tokens.css";
 @import "./design/reset.css";
 @import "./design/typography.css";

@@ -38,54 +38,63 @@ export function SignupPage() {
   }
 
   return (
-    <div className="min-h-full flex items-center justify-center px-lg">
+    <div className="min-h-full flex items-center justify-center px-lg py-3xl">
       <form
         onSubmit={onSubmit}
-        className="w-full max-w-[360px] flex flex-col gap-lg"
+        className="w-full max-w-auth flex flex-col gap-xl"
         aria-labelledby="signup-title"
       >
-        <h1 id="signup-title" className="t-title">Create your organisation</h1>
-        <label className="flex flex-col gap-xs">
-          <span className="t-meta">Organisation name</span>
-          <Input
-            required
-            value={orgName}
-            onChange={(e) => setOrgName(e.target.value)}
-          />
-        </label>
-        <label className="flex flex-col gap-xs">
-          <span className="t-meta">Your name (optional)</span>
-          <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
-        </label>
-        <label className="flex flex-col gap-xs">
-          <span className="t-meta">Email</span>
-          <Input
-            type="email"
-            autoComplete="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </label>
-        <label className="flex flex-col gap-xs">
-          <span className="t-meta">Password</span>
-          <Input
-            type="password"
-            autoComplete="new-password"
-            required
-            minLength={12}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-          <span className="t-small text-text-tertiary">12 characters minimum.</span>
-        </label>
-        {error && <p className="t-small" style={{ color: "var(--signal-negative)" }}>{error}</p>}
+        <header className="flex flex-col gap-xs">
+          <h1 id="signup-title" className="t-title">Create your organisation</h1>
+          <p className="t-small text-text-secondary">
+            Stand up a workspace for your IR team.
+          </p>
+        </header>
+        <div className="flex flex-col gap-md">
+          <label className="flex flex-col gap-xs">
+            <span className="t-meta">Organisation name</span>
+            <Input
+              required
+              value={orgName}
+              onChange={(e) => setOrgName(e.target.value)}
+            />
+          </label>
+          <label className="flex flex-col gap-xs">
+            <span className="t-meta">Your name (optional)</span>
+            <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
+          </label>
+          <label className="flex flex-col gap-xs">
+            <span className="t-meta">Email</span>
+            <Input
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </label>
+          <label className="flex flex-col gap-xs">
+            <span className="t-meta">Password</span>
+            <Input
+              type="password"
+              autoComplete="new-password"
+              required
+              minLength={12}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            <span className="t-small text-text-tertiary">12 characters minimum.</span>
+          </label>
+        </div>
+        {error !== null && (
+          <p className="t-small text-signal-negative">{error}</p>
+        )}
         <Button type="submit" disabled={submitting}>
           {submitting ? "Creating…" : "Create organisation"}
         </Button>
-        <p className="t-small">
+        <p className="t-small text-text-secondary">
           Already have an account?{" "}
-          <a href="/login" className="underline">
+          <a href="/login" className="underline text-text-primary">
             Sign in
           </a>
         </p>
