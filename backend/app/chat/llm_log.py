@@ -28,7 +28,6 @@ Surface = Literal[
     "topic_gate",
     "thread_title",
     "briefing_narrative",
-    "briefing_narrative_retry",
     "news_summary",
 ]
 

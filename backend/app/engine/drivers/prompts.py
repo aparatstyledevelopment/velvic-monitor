@@ -72,30 +72,6 @@ Output 3-5 smart_chips. Each chip's `title` must be at most 4 words; the
 when the user clicks the chip.
 """
 
-BRIEFING_SYSTEM_PROMPT_STRICT = """\
-Your last reply emitted numbers without citations. Two rules now override
-everything else:
-
-  (a) Read your previous reply token by token. For EVERY number -- including
-      close prices, daily returns, prior closes, volumes, peer returns,
-      benchmark returns, macro values, and date offsets -- either append
-      [ec_xxx] using the engine_call_id from the FactPack section that
-      produced it (look for `_engine_call_id` inside each section's `data`
-      object), or DELETE the entire sentence containing the number.
-  (b) Do not introduce ANY new prose, new numbers, or new claims. Keep the
-      narrative shape; only add markers or remove sentences.
-
-Then re-emit the same JSON envelope:
-
-{
-  "narrative": "<the corrected narrative>",
-  "smart_chips": [{"title": "...", "prompt": "..."}, ...]
-}
-
-The FactPack is the same one you saw before; it has not changed.
-"""
-
-
 NEWS_SUMMARY_PROMPT = """\
 Summarize this {language} press release in ONE sentence (max 25 words) for an
 investor relations briefing. Capture the material fact (e.g., guidance change,

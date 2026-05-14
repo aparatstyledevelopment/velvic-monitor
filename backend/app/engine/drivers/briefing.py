@@ -29,7 +29,6 @@ from app.chat.llm_log import LLMCallStats, LLMLogContext, record_call
 from app.core.logging import logger
 from app.engine.drivers.prompts import (
     BRIEFING_SYSTEM_PROMPT,
-    BRIEFING_SYSTEM_PROMPT_STRICT,
     NEWS_SUMMARY_PROMPT,
 )
 from app.engine.drivers.tools import (
@@ -266,26 +265,6 @@ async def generate_briefing(
             as_of=as_of.isoformat(),
             count=len(parsed.uncited),
         )
-        retry = await call_messages(
-            system=BRIEFING_SYSTEM_PROMPT_STRICT,
-            user=user_prompt,
-            max_tokens=1500,
-            model=model,
-        )
-        await record_call(
-            session,
-            surface="briefing_narrative_retry",
-            transport="messages_api",
-            stats=LLMCallStats(
-                model=retry.model,
-                prompt_tokens=retry.prompt_tokens,
-                completion_tokens=retry.completion_tokens,
-                cost_cents=retry.cost_cents,
-            ),
-            ctx=LLMLogContext(company_id=company_id),
-        )
-        parsed = _parse_briefing_response(retry.text, valid_ids, values_index)
-        response = retry
 
     existing = await session.scalar(
         select(BriefingCard).where(
